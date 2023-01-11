@@ -2,33 +2,35 @@
   <view class="custom-tree-select-content">
     <view :class="['select-list', { disabled }, { active: selectList.length }]" @click="open">
       <view class="left">
-        <view v-show="selectList.length" class="select-item" v-for="item in selectList" :key="item">
-          <view class="name">
-            <text>{{ getName(item) }}</text>
-          </view>
-          <view v-show="!disabled" class="close" @click.stop="removeSelectedItem(item)">
-            <uni-icons type="closeempty" size="18" color="#fff"></uni-icons>
+        <view v-if="selectList.length">
+          <view class="select-item" v-for="item in selectList" :key="item">
+            <view class="name">
+              <text>{{ getName(item) }}</text>
+            </view>
+            <view v-if="!disabled" class="close" @click.stop="removeSelectedItem(item)">
+              <uni-icons type="closeempty" size="18" color="#fff"></uni-icons>
+            </view>
           </view>
         </view>
-        <view v-show="!selectList.length" style="color: #6a6a6a" class="no-data">
+        <view v-if="!selectList.length" style="color: #6a6a6a" class="no-data">
           <text>{{ placeholder }}</text>
         </view>
       </view>
       <view class="right">
         <uni-icons
-          v-show="(!selectList.length || !clearable) && !clickOpen"
+          v-if="(!selectList.length || !clearable) && !clickOpen"
           type="bottom"
           size="14"
           color="#999"
         ></uni-icons>
         <uni-icons
-          v-show="selectList.length && clearable && !clickOpen"
+          v-if="selectList.length && clearable && !clickOpen"
           type="clear"
           size="24"
           color="#c0c4cc"
           @click.native.stop="clear"
         ></uni-icons>
-        <uni-icons v-show="clickOpen" class="rotating" type="spinner-cycle" size="16"></uni-icons>
+        <uni-icons v-if="clickOpen" class="rotating" type="spinner-cycle" size="16"></uni-icons>
       </view>
     </view>
     <uni-popup
@@ -52,24 +54,26 @@
             <text>{{ confirmText }}</text>
           </view>
         </view>
-        <view v-show="search" class="search-box">
+        <view v-if="search" class="search-box">
           <uni-easyinput :maxlength="-1" prefixIcon="search" placeholder="搜索" @input="handleSearch"></uni-easyinput>
         </view>
-        <scroll-view v-if="treeData.length" class="select-content" scroll-y="true" @touchmove.stop>
-          <view v-show="!filterTreeData.length" class="no-data" center>
-            <text>暂无数据</text>
-          </view>
-          <data-select-item
-            v-for="item in filterTreeData"
-            :key="item[dataValue]"
-            :node="item"
-            :dataLabel="dataLabel"
-            :dataValue="dataValue"
-            :dataChildren="dataChildren"
-            :choseParent="choseParent"
-          ></data-select-item>
-        </scroll-view>
-        <view v-else class="no-data" center>
+        <view v-if="treeData.length" class="select-content">
+          <scroll-view class="scroll-view-box" scroll-y="true" @touchmove.stop>
+            <view v-if="!filterTreeData.length" class="no-data center">
+              <text>暂无数据</text>
+            </view>
+            <data-select-item
+              v-for="item in filterTreeData"
+              :key="item[dataValue]"
+              :node="item"
+              :dataLabel="dataLabel"
+              :dataValue="dataValue"
+              :dataChildren="dataChildren"
+              :choseParent="choseParent"
+            ></data-select-item>
+          </scroll-view>
+        </view>
+        <view v-else class="no-data center">
           <text>暂无数据</text>
         </view>
       </view>
@@ -85,8 +89,8 @@ export default {
     dataSelectItem
   },
   model: {
-    prop: 'selectedList',
-    event: 'selectedChange'
+    prop: 'value',
+    event: 'input'
   },
   props: {
     search: {
@@ -161,7 +165,7 @@ export default {
       type: Boolean,
       default: false
     },
-    selectedList: {
+    value: {
       type: [Array, String],
       default: () => []
     }
@@ -180,11 +184,11 @@ export default {
   },
   computed: {
     selectList() {
-      return typeof this.selectedList === 'string'
-        ? this.selectedList.length
-          ? this.selectedList.split(',')
+      return typeof this.value === 'string'
+        ? this.value.length
+          ? this.value.split(',')
           : []
-        : this.selectedList.map((item) => item.toString())
+        : this.value.map((item) => item.toString())
     }
   },
   watch: {
@@ -200,7 +204,7 @@ export default {
         }
       }
     },
-    selectedList: {
+    value: {
       deep: true,
       handler() {
         this.initData(this.treeData)
@@ -210,6 +214,12 @@ export default {
   },
   mounted() {
     this.getContentHeight(uni.getSystemInfoSync())
+    this.$bus.$on('custom-tree-select-node-click', (node) => {
+      this.handleNodeClick(node)
+    })
+    this.$bus.$on('custom-tree-select-name-click', (node) => {
+      this.handleHideChildren(node)
+    })
   },
   methods: {
     paging(data, PAGENUM = 50) {
@@ -434,9 +444,9 @@ export default {
 
       return []
     },
-    allChecked(selectedList, arr) {
+    allChecked(value, arr) {
       for (let i = 0; i < arr.length; i++) {
-        if (!selectedList.includes(arr[i][this.dataValue].toString())) {
+        if (!value.includes(arr[i][this.dataValue].toString())) {
           return false
         }
       }
@@ -466,11 +476,11 @@ export default {
       if (!this.mutiple) {
         if (node.checked) {
           this.$emit(
-            'selectedChange',
-            this.isString(this.selectedList) ? node[this.dataValue].toString() : [node[this.dataValue].toString()]
+            'input',
+            this.isString(this.value) ? node[this.dataValue].toString() : [node[this.dataValue].toString()]
           )
         } else {
-          this.$emit('selectedChange', this.isString(this.selectedList) ? '' : [])
+          this.$emit('input', this.isString(this.value) ? '' : [])
         }
         this.close()
       } else {
@@ -483,7 +493,7 @@ export default {
           } else {
             emitData = this.selectList.filter((id) => id !== node[this.dataValue].toString())
           }
-          this.$emit('selectedChange', this.isString(this.selectedList) ? emitData.join(',') : emitData)
+          this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
         } else {
           // 需要联动
           let emitData = [...this.selectList]
@@ -526,7 +536,7 @@ export default {
               })
             }
           }
-          this.$emit('selectedChange', this.isString(this.selectedList) ? emitData.join(',') : emitData)
+          this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
         }
       }
     },
@@ -553,11 +563,11 @@ export default {
     },
     removeSelectedItem(id) {
       const emitData = this.selectList.filter((item) => item !== id)
-      this.$emit('selectedChange', this.isString(this.selectedList) ? emitData.join(',') : emitData)
+      this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
     },
     clear() {
       if (this.disabled) return
-      this.$emit('selectedChange', this.isString(this.selectedList) ? '' : [])
+      this.$emit('input', this.isString(this.value) ? '' : [])
     }
   }
 }
@@ -585,7 +595,7 @@ export default {
       .select-item {
         margin: 4px 10px 4px 0;
         padding: 4px 5px;
-        max-width: 100%;
+        max-width: auto;
         height: auto;
         background-color: #007aff;
         border-radius: 4px;
@@ -628,6 +638,7 @@ export default {
   }
 
   .popup-content {
+    flex: 1;
     background-color: #fff;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
@@ -659,21 +670,30 @@ export default {
     }
 
     .select-content {
+      margin: 8px 10px;
       flex: 1;
-      padding: 8px 10px;
-      overflow: auto;
+      overflow: hidden;
       position: relative;
+    }
+
+    .scroll-view-box {
+      touch-action: none;
+      flex: 1;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
     }
   }
 
   .no-data {
-    width: 100%;
+    width: auto;
     color: #999;
     font-size: 12px;
   }
 
-  .no-data[center=''],
-  .no-data[align='center'] {
+  .no-data.center {
     text-align: center;
   }
 

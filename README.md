@@ -4,7 +4,11 @@
 
 当前插件主要作为表单中选择器来使用，如果只是作为弹窗会出现数据状态无法重置，此时推荐使用 [`custom-tree-popup`](https://ext.dcloud.net.cn/plugin?name=custom-tree-popup) 组件。 
 
-由于煞笔业务调整，app开发转为企业微信小程序开发，因此插件不再进行维护。
+**如果在微信小程序中使用，在 `main.js` 文件中添加以下代码**
+
+```js
+Vue.prototype.$bus = new Vue()
+```
 
 ## 优势
 

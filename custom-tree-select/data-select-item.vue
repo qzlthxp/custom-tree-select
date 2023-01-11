@@ -1,8 +1,8 @@
 <template>
   <view class="custom-tree-select-content">
-    <view v-show="node.visible" class="custom-tree-select-item">
+    <view v-if="node.visible" class="custom-tree-select-item">
       <view class="item-content" :style="{ paddingLeft: `${level * 10}px` }">
-        <view class="left" @click="node.handleHideChildren(node)">
+        <view class="left" @click="nameClick(node)">
           <view
             :class="[
               'icon',
@@ -25,11 +25,11 @@
           :disabled="node.disabled"
           :value="node[dataValue].toString()"
           :checked="node.checked"
-          @click="!node.disabled && node.handleNodeClick(node)"
+          @click="nodeClick(node)"
         />
       </view>
     </view>
-    <view v-show="node.showChildren && node[dataChildren] && node[dataChildren].length">
+    <view v-if="node.showChildren && node[dataChildren] && node[dataChildren].length">
       <data-select-item
         v-for="item in node[dataChildren]"
         :key="item[dataValue]"
@@ -45,8 +45,12 @@
 </template>
 
 <script>
+import dataSelectItem from './data-select-item.vue'
 export default {
   name: 'data-select-item',
+  components: {
+    'data-select-item': dataSelectItem
+  },
   props: {
     node: {
       type: Object,
@@ -72,6 +76,31 @@ export default {
       type: Number,
       default: 0
     }
+  },
+  methods: {
+    nameClick(node) {
+      // #ifdef MP-WEIXIN
+      this.$bus.$emit('custom-tree-select-name-click', node)
+      // #endif
+
+      // #ifndef MP-WEIXIN
+      node.handleHideChildren(node)
+      // #endif
+    },
+    nodeClick(node) {
+      if (!node.disabled) {
+        // #ifdef MP-WEIXIN
+        this.$bus.$emit('custom-tree-select-node-click', node)
+        // #endif
+
+        // #ifndef MP-WEIXIN
+        node.handleNodeClick(node)
+        // #endif
+      }
+    }
+  },
+  options: {
+    styleIsolation: 'shared'
   }
 }
 </script>
