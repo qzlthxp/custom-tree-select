@@ -2,7 +2,7 @@
   <view class="custom-tree-select-content">
     <view v-if="node.visible" class="custom-tree-select-item">
       <view class="item-content" :style="{ paddingLeft: `${level * 10}px` }">
-        <view class="left" @click="nameClick(node)">
+        <view class="left" @click.stop="nameClick(node)">
           <view
             :class="[
               'icon',
@@ -25,7 +25,7 @@
           :disabled="node.disabled"
           :value="node[dataValue].toString()"
           :checked="node.checked"
-          @click="nodeClick(node)"
+          @click.stop="nodeClick(node)"
         />
       </view>
     </view>

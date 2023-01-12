@@ -214,12 +214,6 @@ export default {
   },
   mounted() {
     this.getContentHeight(uni.getSystemInfoSync())
-    this.$bus.$on('custom-tree-select-node-click', (node) => {
-      this.handleNodeClick(node)
-    })
-    this.$bus.$on('custom-tree-select-name-click', (node) => {
-      this.handleHideChildren(node)
-    })
   },
   methods: {
     paging(data, PAGENUM = 50) {
@@ -294,6 +288,12 @@ export default {
         }
         return
       }
+      this.$bus.$on('custom-tree-select-node-click', (node) => {
+        this.handleNodeClick(node)
+      })
+      this.$bus.$on('custom-tree-select-name-click', (node) => {
+        this.handleHideChildren(node)
+      })
       const pagingArr = this.paging(this.treeData)
       this.filterTreeData.push(...(pagingArr?.[0] || []))
       this.showPopup = true
@@ -314,6 +314,8 @@ export default {
     close() {
       this.$refs.popup.close()
       this.showPopup = false
+      this.$bus.$off('custom-tree-select-node-click')
+      this.$bus.$off('custom-tree-select-name-click')
     },
     change(data) {
       if (!data.show) {
