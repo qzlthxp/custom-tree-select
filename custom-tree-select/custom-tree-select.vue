@@ -2,7 +2,7 @@
   <view class="custom-tree-select-content">
     <view :class="['select-list', { disabled }, { active: selectList.length }]" @click="open">
       <view class="left">
-        <view v-if="selectList.length">
+        <view v-if="selectList.length" class="select-items">
           <view class="select-item" v-for="item in selectList" :key="item">
             <view class="name">
               <text>{{ getName(item) }}</text>
@@ -288,12 +288,6 @@ export default {
         }
         return
       }
-      this.$bus.$on('custom-tree-select-node-click', (node) => {
-        this.handleNodeClick(node)
-      })
-      this.$bus.$on('custom-tree-select-name-click', (node) => {
-        this.handleHideChildren(node)
-      })
       const pagingArr = this.paging(this.treeData)
       this.filterTreeData.push(...(pagingArr?.[0] || []))
       this.showPopup = true
@@ -313,14 +307,32 @@ export default {
     },
     close() {
       this.$refs.popup.close()
-      this.showPopup = false
-      this.$bus.$off('custom-tree-select-node-click')
-      this.$bus.$off('custom-tree-select-name-click')
     },
     change(data) {
+      // #ifdef MP-WEIXIN
+      if (data.show) {
+        this.$bus.$on('custom-tree-select-node-click', (node) => {
+          this.handleNodeClick(node)
+        })
+        this.$bus.$on('custom-tree-select-name-click', (node) => {
+          this.handleHideChildren(node)
+        })
+      }
+      // #endif
       if (!data.show) {
+        // #ifdef MP-WEIXIN
+        this.$bus.$off('custom-tree-select-node-click')
+        this.$bus.$off('custom-tree-select-name-click')
+        // #endif
         this.resetClearTimerList()
         this.filterTreeData.splice(0, this.filterTreeData.length)
+        if (this.animation) {
+          setTimeout(() => {
+            this.showPopup = false
+          }, 200)
+        } else {
+          this.showPopup = false
+        }
       }
       this.$emit('change', data)
     },
@@ -583,6 +595,7 @@ export default {
     border: 1px solid #e5e5e5;
     border-radius: 4px;
     display: flex;
+    justify-content: space-between;
     align-items: center;
 
     &.active {
@@ -591,8 +604,11 @@ export default {
 
     .left {
       flex: 1;
-      display: flex;
-      flex-wrap: wrap;
+
+      .select-items {
+        display: flex;
+        flex-wrap: wrap;
+      }
 
       .select-item {
         margin: 4px 10px 4px 0;
