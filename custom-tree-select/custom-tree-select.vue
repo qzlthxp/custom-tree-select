@@ -58,7 +58,7 @@
           <uni-easyinput :maxlength="-1" prefixIcon="search" placeholder="搜索" @input="handleSearch"></uni-easyinput>
         </view>
         <view v-if="treeData.length" class="select-content">
-          <scroll-view class="scroll-view-box" scroll-y="true" @touchmove.stop>
+          <scroll-view class="scroll-view-box" :scroll-top="scrollTop" scroll-y="true" @touchmove.stop>
             <view v-if="!filterTreeData.length" class="no-data center">
               <text>暂无数据</text>
             </view>
@@ -165,6 +165,10 @@ export default {
       type: Boolean,
       default: false
     },
+    showChildren: {
+      type: Boolean,
+      default: true
+    },
     value: {
       type: [Array, String],
       default: () => []
@@ -179,6 +183,7 @@ export default {
       showPopup: false,
       clickOpen: false,
       clickOpenTimer: null,
+      scrollTop: 0,
       timer: null
     }
   },
@@ -216,6 +221,12 @@ export default {
     this.getContentHeight(uni.getSystemInfoSync())
   },
   methods: {
+    goTop() {
+      this.scrollTop = 10
+      this.$nextTick(() => {
+        this.scrollTop = 0
+      })
+    },
     paging(data, PAGENUM = 50) {
       if (!data instanceof Array || !data.length) return data
       const pages = []
@@ -224,7 +235,7 @@ export default {
         if (!pages[i]) {
           pages[i] = []
         }
-        pages[i].push(Object.freeze(item))
+        pages[i].push(item)
       })
       return pages
     },
@@ -234,9 +245,10 @@ export default {
         this.resetClearTimerList()
         const pagingArr = this.paging(this.searchValue(str, this.treeData))
         this.filterTreeData.splice(0, this.filterTreeData.length, ...(pagingArr?.[0] || []))
+        this.goTop()
         this.lazyRenderList(pagingArr, 1)
         uni.hideKeyboard()
-      }, 300)
+      }, 500)
     },
     searchValue(str, arr) {
       const res = []
@@ -392,7 +404,11 @@ export default {
         } else {
           this.$set(arr[i], 'visible', true)
         }
-        this.$set(arr[i], 'showChildren', arr[i].showChildren ?? true)
+        if ('showChildren' in arr[i] && arr[i].showChildren != undefined) {
+          this.$set(arr[i], 'showChildren', arr[i].showChildren)
+        } else {
+          this.$set(arr[i], 'showChildren', this.showChildren)
+        }
         if (!arr[i].handleNodeClick) {
           this.$set(arr[i], 'handleNodeClick', this.handleNodeClick)
         }
