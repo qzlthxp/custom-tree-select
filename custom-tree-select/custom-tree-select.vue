@@ -1,13 +1,20 @@
 <template>
   <view class="custom-tree-select-content">
-    <view :class="['select-list', { disabled }, { active: selectList.length }]" @click="open">
+    <view
+      :class="['select-list', { disabled }, { active: selectList.length }]"
+      @click="open"
+    >
       <view class="left">
         <view v-if="selectList.length" class="select-items">
           <view class="select-item" v-for="item in selectList" :key="item">
             <view class="name">
               <text>{{ getName(item) }}</text>
             </view>
-            <view v-if="!disabled" class="close" @click.stop="removeSelectedItem(item)">
+            <view
+              v-if="!disabled"
+              class="close"
+              @click.stop="removeSelectedItem(item)"
+            >
               <uni-icons type="closeempty" size="16" color="#999"></uni-icons>
             </view>
           </view>
@@ -17,7 +24,12 @@
         </view>
       </view>
       <view class="right">
-        <uni-icons v-if="!selectList.length || !clearable" type="bottom" size="14" color="#999"></uni-icons>
+        <uni-icons
+          v-if="!selectList.length || !clearable"
+          type="bottom"
+          size="14"
+          color="#999"
+        ></uni-icons>
         <uni-icons
           v-if="selectList.length && clearable"
           type="clear"
@@ -44,7 +56,11 @@
           <view class="center">
             <text>{{ placeholder }}</text>
           </view>
-          <view :style="{ color: confirmTextColor }" class="right" @click="close()">
+          <view
+            :style="{ color: confirmTextColor }"
+            class="right"
+            @click="close()"
+          >
             <text>{{ confirmText }}</text>
           </view>
         </view>
@@ -57,10 +73,22 @@
             confirm-type="search"
             @confirm="handleSearch"
           ></uni-easyinput>
-          <button type="primary" size="mini" class="search-btn" @click="handleSearch">搜索</button>
+          <button
+            type="primary"
+            size="mini"
+            class="search-btn"
+            @click="handleSearch"
+          >
+            搜索
+          </button>
         </view>
         <view v-if="treeData.length" class="select-content">
-          <scroll-view class="scroll-view-box" :scroll-top="scrollTop" scroll-y="true" @touchmove.stop>
+          <scroll-view
+            class="scroll-view-box"
+            :scroll-top="scrollTop"
+            scroll-y="true"
+            @touchmove.stop
+          >
             <view v-if="!filterTreeData.length" class="no-data center">
               <text>暂无数据</text>
             </view>
@@ -259,7 +287,7 @@ export default {
     },
     // 分页
     paging(data, PAGENUM = 50) {
-      if (!data instanceof Array || !data.length) return data
+      if (!Array.isArray(data) || !data.length) return data
       const pages = []
       data.forEach((item, index) => {
         const i = Math.floor(index / PAGENUM)
@@ -289,12 +317,17 @@ export default {
       const res = []
       arr.forEach((item) => {
         if (item.visible) {
-          if (item[this.dataLabel].toLowerCase().indexOf(str.toLowerCase()) > -1) {
+          if (
+            item[this.dataLabel].toLowerCase().indexOf(str.toLowerCase()) > -1
+          ) {
             res.push(item)
           } else {
             if (item[this.dataChildren]?.length) {
               const data = this.searchValue(str, item[this.dataChildren])
               if (data?.length) {
+                if (!item.showChildren && item[this.dataChildren]?.length) {
+                  item.showChildren = true
+                }
                 res.push({
                   ...item,
                   [this.dataChildren]: data
@@ -325,7 +358,11 @@ export default {
     // 懒加载
     renderTree(arr) {
       const pagingArr = this.paging(arr)
-      this.filterTreeData.splice(0, this.filterTreeData.length, ...(pagingArr?.[0] || []))
+      this.filterTreeData.splice(
+        0,
+        this.filterTreeData.length,
+        ...(pagingArr?.[0] || [])
+      )
       this.lazyRenderList(pagingArr, 1)
     },
     // 懒加载具体逻辑
@@ -503,6 +540,19 @@ export default {
       }
       return null
     },
+    getFilterTreeNode(node) {
+      const arr = [...this.filterTreeData]
+      while (arr.length) {
+        const item = arr.shift()
+        if (item[this.dataValue] === node[this.dataValue]) {
+          return item
+        }
+        if (item[this.dataChildren]?.length) {
+          arr.push(...item[this.dataChildren])
+        }
+      }
+      return null
+    },
     // 点击checkbox
     handleNodeClick(node) {
       node = this.getTruthNode(node)
@@ -512,7 +562,9 @@ export default {
         if (node.checked) {
           this.$emit(
             'input',
-            this.isString(this.value) ? node[this.dataValue].toString() : [node[this.dataValue].toString()]
+            this.isString(this.value)
+              ? node[this.dataValue].toString()
+              : [node[this.dataValue].toString()]
           )
         } else {
           this.$emit('input', this.isString(this.value) ? '' : [])
@@ -524,11 +576,18 @@ export default {
           // 不需要联动
           let emitData = null
           if (node.checked) {
-            emitData = Array.from(new Set([...this.selectList, node[this.dataValue].toString()]))
+            emitData = Array.from(
+              new Set([...this.selectList, node[this.dataValue].toString()])
+            )
           } else {
-            emitData = this.selectList.filter((id) => id !== node[this.dataValue].toString())
+            emitData = this.selectList.filter(
+              (id) => id !== node[this.dataValue].toString()
+            )
           }
-          this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
+          this.$emit(
+            'input',
+            this.isString(this.value) ? emitData.join(',') : emitData
+          )
         } else {
           // 需要联动
           let emitData = [...this.selectList]
@@ -538,23 +597,35 @@ export default {
               .filter((item) => !item.disabled)
               .map((item) => item[this.dataValue].toString())
           }
-          const contiguousNodes = this.getContiguousNodes(node, this.treeData).filter((item) => !item.disabled)
+          const contiguousNodes = this.getContiguousNodes(
+            node,
+            this.treeData
+          ).filter((item) => !item.disabled)
           const [_, ...parentNodes] = this.getParentNode(node, this.treeData)
           if (node.checked) {
             // 选中
-            emitData = Array.from(new Set([...emitData, node[this.dataValue].toString()]))
+            emitData = Array.from(
+              new Set([...emitData, node[this.dataValue].toString()])
+            )
             if (childrenVal.length) {
               // 选中全部子节点
               emitData = Array.from(new Set([...emitData, ...childrenVal]))
             }
-            if (parentNodes.length && this.allChecked(emitData, contiguousNodes)) {
+            if (
+              parentNodes.length &&
+              this.allChecked(emitData, contiguousNodes)
+            ) {
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
                 const item = parentNodes.shift()
                 if (!item.disabled) {
-                  const children = this.getChildren(item).filter((child) => !child.disabled)
+                  const children = this.getChildren(item).filter(
+                    (child) => !child.disabled
+                  )
                   if (this.allChecked(emitData, children)) {
-                    emitData = Array.from(new Set([...emitData, item[this.dataValue].toString()]))
+                    emitData = Array.from(
+                      new Set([...emitData, item[this.dataValue].toString()])
+                    )
                   } else {
                     break
                   }
@@ -563,7 +634,9 @@ export default {
             }
           } else {
             // 取消选中
-            emitData = emitData.filter((id) => id !== node[this.dataValue].toString())
+            emitData = emitData.filter(
+              (id) => id !== node[this.dataValue].toString()
+            )
             if (childrenVal.length) {
               // 取消选中全部子节点
               childrenVal.forEach((childVal) => {
@@ -571,13 +644,17 @@ export default {
               })
             }
           }
-          this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
+          this.$emit(
+            'input',
+            this.isString(this.value) ? emitData.join(',') : emitData
+          )
         }
       }
     },
     // 点击名称折叠或展开
     handleHideChildren(node) {
-      this.getTruthNode(node).showChildren = !this.getTruthNode(node).showChildren
+      this.getFilterTreeNode(node).showChildren =
+        !this.getFilterTreeNode(node).showChildren
     },
     // 根据id展示内容
     getName(id) {
@@ -596,7 +673,10 @@ export default {
     // 移除选项
     removeSelectedItem(id) {
       const emitData = this.selectList.filter((item) => item !== id)
-      this.$emit('input', this.isString(this.value) ? emitData.join(',') : emitData)
+      this.$emit(
+        'input',
+        this.isString(this.value) ? emitData.join(',') : emitData
+      )
     },
     // 清空选项
     clear() {

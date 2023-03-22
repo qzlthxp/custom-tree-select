@@ -1,8 +1,20 @@
 <template>
   <view
     class="custom-tree-select-content"
-    :class="{ border: border && node[dataChildren] && node[dataChildren].length && node.showChildren }"
-    :style="{ marginLeft: `${node[dataChildren] && node[dataChildren].length ? level * 5 + 10 : level * 5 + 5}px` }"
+    :class="{
+      border:
+        border &&
+        node[dataChildren] &&
+        node[dataChildren].length &&
+        node.showChildren
+    }"
+    :style="{
+      marginLeft: `${
+        node[dataChildren] && node[dataChildren].length
+          ? level * 5 + 10
+          : level * 5 + 5
+      }px`
+    }"
   >
     <view v-if="node.visible" class="custom-tree-select-item">
       <view class="item-content">
@@ -33,7 +45,11 @@
         />
       </view>
     </view>
-    <view v-if="node.showChildren && node[dataChildren] && node[dataChildren].length">
+    <view
+      v-if="
+        node.showChildren && node[dataChildren] && node[dataChildren].length
+      "
+    >
       <data-select-item
         v-for="item in node[dataChildren]"
         :key="item[dataValue]"
