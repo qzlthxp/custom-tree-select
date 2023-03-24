@@ -318,7 +318,10 @@ export default {
       arr.forEach((item) => {
         if (item.visible) {
           if (
-            item[this.dataLabel].toLowerCase().indexOf(str.toLowerCase()) > -1
+            item[this.dataLabel]
+              .toString()
+              .toLowerCase()
+              .indexOf(str.toLowerCase()) > -1
           ) {
             res.push(item)
           } else {
