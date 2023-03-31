@@ -1,4 +1,4 @@
-# custom-tree-select 使用指南
+# [custom-tree-select](https://ext.dcloud.net.cn/plugin?id=10295) 使用指南
 
 **提示：**使用该插件前确保你已经导入 `uni-popup` `uni-icons` `uni-easyinput` 插件。
 
@@ -11,6 +11,8 @@
   Vue.prototype.$bus = new Vue()
 // #endif
 ```
+
+**有问题可以加QQ群：297080738**
 
 ## 优势
 
@@ -26,27 +28,29 @@
 
 ## Props
 
-|        属性名         |      类型       |     默认值      |                             说明                             |
-| :-------------------: | :-------------: | :-------------: | :----------------------------------------------------------: |
-|       animation       |     Boolean     |      ture       |                       是否开启弹窗动画                       |
-|     is-mask-click     |     Boolean     |      true       |                       点击遮罩关闭弹窗                       |
-| mask-background-color |     String      | rgba(0,0,0,0.4) |                蒙版颜色，建议使用 rgba 颜色值                |
-|   background-color    |     String      |      none       |                         主窗口背景色                         |
-|       safe-area       |     Boolean     |      true       |                      是否适配底部安全区                      |
-|      choseParent      |     Boolean     |      true       |                        父节点是否可选                        |
-|        linkage        |     Boolean     |      false      |                       父子节点是否联动                       |
-|      placeholder      |     String      |        -        |                   空状态信息提示、弹窗标题                   |
-|      confirmText      |     String      |      完成       |                         确定按钮文字                         |
-|   confirmTextColor    |     String      |     #007aff     |                       确定按钮文字颜色                       |
-|       listData        |      Array      |        -        |                          展示的数据                          |
-|       dataLabel       |     String      |      name       |                   listData中对应数据的key                    |
-|       dataValue       |     String      |       id        |                  listData中对应数据的value                   |
-|     dataChildren      |     String      |    children     |              listData中对应数据的children的key               |
-|       clearable       |     Boolean     |      false      |             是否显示清除按钮，点击清除所有已选项             |
-|        mutiple        |     Boolean     |      false      |                         是否可以多选                         |
-|       disabled        |     Boolean     |      false      |                         是否允许修改                         |
-|        search         |     Boolean     |      false      |             是否可以搜索（常用于数据较多的情况）             |
-|           -           | Array \| String |       [ ]       | 已选择的值，通过 v-model 进行绑定，例如：v-model="formData.selectedList" ，根据你绑定数据的类型自动返回相同类型的数据，String类型通过 `,` 进行分隔。如果没有使用 v-model 绑定数据，那么默认为 `Array` 类型，`selectedChange` 事件接受的数据也是 `Array` 类型 |
+|        属性名         |        类型         |     默认值      |                             说明                             |
+| :-------------------: | :-----------------: | :-------------: | :----------------------------------------------------------: |
+|       animation       |       Boolean       |      ture       |                       是否开启弹窗动画                       |
+|     is-mask-click     |       Boolean       |      true       |                       点击遮罩关闭弹窗                       |
+| mask-background-color |       String        | rgba(0,0,0,0.4) |                蒙版颜色，建议使用 rgba 颜色值                |
+|   background-color    |       String        |      none       |                         主窗口背景色                         |
+|       safe-area       |       Boolean       |      true       |                      是否适配底部安全区                      |
+|    **choseParent**    |     **Boolean**     |    **true**     |                      **父节点是否可选**                      |
+|      **linkage**      |     **Boolean**     |    **false**    |                     **父子节点是否联动**                     |
+|      placeholder      |       String        |     请选择      |                   空状态信息提示、弹窗标题                   |
+|      confirmText      |       String        |      完成       |                         确定按钮文字                         |
+|   confirmTextColor    |       String        |     #007aff     |                       确定按钮文字颜色                       |
+|       listData        |        Array        |        -        |                          展示的数据                          |
+|     **dataLabel**     |     **String**      |    **name**     |                **listData中对应数据的label**                 |
+|     **dataValue**     |     **String**      |     **id**      |                **listData中对应数据的value**                 |
+|   **dataChildren**    |     **String**      |  **children**   |               **listData中对应数据的children**               |
+|       clearable       |       Boolean       |      false      |             是否显示清除按钮，点击清除所有已选项             |
+|      **mutiple**      |     **Boolean**     |    **false**    |                       **是否可以多选**                       |
+|     **disabled**      |     **Boolean**     |    **false**    |                       **是否允许修改**                       |
+|        search         |       Boolean       |      false      |             是否可以搜索（常用于数据较多的情况）             |
+|     showChildren      |       Boolean       |      true       | 默认展开（数据内部 showChildren 属性优先级更高，可以设置全局收起，单独展开某一条数据） |
+|        border         |       Boolean       |      false      |                          显示引导线                          |
+|         **-**         | **Array \| String** |     **[ ]**     | **已选择的值，通过 v-model 进行绑定，例如：v-model="formData.selectedList" ，根据你绑定数据的类型自动返回相同类型的数据，String类型通过 `,` 进行分隔。如果没有使用 v-model 绑定数据，那么默认为 `Array` 类型** |
 
 ## Events
 
@@ -54,14 +58,15 @@
 | --------- | ------------------------ | ----------------------------------- |
 | change    | 弹窗组件状态发生变化触发 | e={show: true｜false,type:当前模式} |
 | maskClick | 点击遮罩层触发           |                                     |
+| input     | 选中数据或取消选中时触发 | 以数组形式返回已选择数据            |
 
 ## 基础使用示例
 
 ```vue
 <template>
   <!--/pages/index/index-->
-  <custom-tree-select :listData="listData" v-model="formData.selected1" placeholder="请选择" />
-  <custom-tree-select :listData="listData" v-model="formData.selected2" placeholder="请选择" />
+  <custom-tree-select :listData="listData" v-model="formData.selectedArr" />
+  <custom-tree-select :listData="listData" v-model="formData.selectedString" />
 </template>
 
 <script>
@@ -69,8 +74,8 @@ export default {
   data() {
     return {
       formData: {
-        selected1: [],
-        selected2: ''
+        selectedArr: [],
+        selectedString: ''
       },
       listData: [
         {
@@ -84,10 +89,6 @@ export default {
                 {
                   id: 4,
                   name: '小区1'
-                },
-                {
-                  id: 5,
-                  name: '小区2'
                 }
               ]
             }
@@ -100,24 +101,6 @@ export default {
             {
               id: 6,
               name: '街道2'
-            }
-          ]
-        },
-        {
-          id: 7,
-          name: '城市3',
-          children: [
-            {
-              id: 8,
-              name: '街道1'
-            },
-            {
-              id: 9,
-              name: '街道2'
-            },
-            {
-              id: 10,
-              name: '街道10'
             }
           ]
         }
@@ -134,15 +117,14 @@ export default {
 <template>
   <!--/pages/index/index-->
   <custom-tree-select
-    placeholder="请选择"
+    mutiple
+    linkage
+    clearable
+    search
     dataLabel="text"
     dataValue="value"
-    :mutiple="true"
     :listData="listData"
-    :linkage="true"
-    :clearable="true"
-    :search="true"
-    v-model="selected"
+    v-model="formData.selected"
   ></custom-tree-select>
 </template>
 
@@ -161,17 +143,7 @@ export default {
             {
               value: 3,
               text: '街道1',
-              children: [
-                {
-                  value: 4,
-                  text: '小区1',
-                  disabled: true
-                },
-                {
-                  value: 5,
-                  text: '小区2'
-                }
-              ]
+              disabled: true
             }
           ]
         },
@@ -188,21 +160,7 @@ export default {
         {
           value: 7,
           text: '城市3',
-          visible: false,
-          children: [
-            {
-              value: 8,
-              text: '街道1'
-            },
-            {
-              value: 9,
-              text: '街道2'
-            },
-            {
-              value: 10,
-              text: '街道10'
-            }
-          ]
+          visible: false
         }
       ]
     }

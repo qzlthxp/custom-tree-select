@@ -214,6 +214,7 @@ export default {
   &.border {
     border-left: 1px dashed #c8c7cc;
   }
+
   /deep/ .uni-checkbox-input {
     margin: 0 !important;
   }

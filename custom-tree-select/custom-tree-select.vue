@@ -6,20 +6,24 @@
     >
       <view class="left">
         <view v-if="selectList.length" class="select-items">
-          <view class="select-item" v-for="item in selectList" :key="item">
+          <view
+            class="select-item"
+            v-for="item in selectedListBaseinfo"
+            :key="item[dataValue]"
+          >
             <view class="name">
-              <text>{{ getName(item) }}</text>
+              <text>{{ item[dataLabel] }}</text>
             </view>
             <view
               v-if="!disabled"
               class="close"
-              @click.stop="removeSelectedItem(item)"
+              @click.stop="removeSelectedItem(item[dataValue])"
             >
               <uni-icons type="closeempty" size="16" color="#999"></uni-icons>
             </view>
           </view>
         </view>
-        <view v-if="!selectList.length" style="color: #6a6a6a" class="no-data">
+        <view v-else style="color: #6a6a6a" class="no-data">
           <text>{{ placeholder }}</text>
         </view>
       </view>
@@ -224,12 +228,16 @@ export default {
   },
   computed: {
     selectList() {
-      let curVal = this.value === null ? '' : this.value
-      return typeof curVal === 'string'
-        ? curVal.length
-          ? curVal.split(',')
+      const newVal = this.value === null ? '' : this.value
+      return this.isString(newVal)
+        ? newVal.length
+          ? newVal.split(',')
           : []
-        : curVal.map((item) => item.toString())
+        : newVal.map((item) => item.toString())
+    },
+    selectedListBaseinfo() {
+      const ids = this.value === null ? '' : this.value
+      return this.getselectedInfo(ids)
     }
   },
   watch: {
@@ -248,9 +256,14 @@ export default {
       }
     },
     value: {
-      deep: true,
-      handler() {
-        this.initData(this.treeData)
+      immediate: true,
+      handler(newVal) {
+        const ids = newVal
+          ? Array.isArray(newVal)
+            ? newVal
+            : newVal.split(',')
+          : []
+        this.changeStatus(ids, true)
         this.updateTreeData(this.filterTreeData)
       }
     }
@@ -259,8 +272,55 @@ export default {
     this.getContentHeight(uni.getSystemInfoSync())
   },
   methods: {
+    // 更新试图 搜索的数据如果是父子联动有时候不能正常显示
+    updateTreeData(arr) {
+      if (!arr.length) return
+      for (let i = 0; i < arr.length; i++) {
+        const truthNode = this.getTruthNode(arr[i])
+        if (truthNode) {
+          arr[i].checked = truthNode.checked
+          if (arr[i][this.dataChildren]?.length) {
+            this.updateTreeData(arr[i][this.dataChildren])
+          }
+        }
+      }
+    },
+    // 获取treeData中对应数据
+    getTruthNode(node) {
+      const arr = [...this.treeData]
+      while (arr.length) {
+        const item = arr.shift()
+        if (item[this.dataValue] === node[this.dataValue]) {
+          return item
+        }
+        if (item[this.dataChildren]?.length) {
+          arr.push(...item[this.dataChildren])
+        }
+      }
+      return null
+    },
+    // 获取 filterTreeData 中对应数据
+    getFilterTreeNode(node) {
+      const arr = [...this.filterTreeData]
+      while (arr.length) {
+        const item = arr.shift()
+        if (item[this.dataValue] === node[this.dataValue]) {
+          return item
+        }
+        if (item[this.dataChildren]?.length) {
+          arr.push(...item[this.dataChildren])
+        }
+      }
+      return null
+    },
+    getContentHeight({ screenHeight }) {
+      this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
+    },
+    isString(data) {
+      return typeof data === 'string'
+    },
     deepCopy(target) {
-      let copyed_objs = [] //此数组解决了循环引用和相同引用的问题，它存放已经递归到的目标对象
+      let copyed_objs = []
       function _deepCopy(target) {
         if (typeof target !== 'object' || !target) {
           return target
@@ -272,7 +332,7 @@ export default {
         }
         let obj = {}
         if (Array.isArray(target)) {
-          obj = [] //处理target是数组的情况
+          obj = []
         }
         copyed_objs.push({ target: target, copyTarget: obj })
         Object.keys(target).forEach((key) => {
@@ -328,7 +388,11 @@ export default {
             if (item[this.dataChildren]?.length) {
               const data = this.searchValue(str, item[this.dataChildren])
               if (data?.length) {
-                if (!item.showChildren && item[this.dataChildren]?.length) {
+                if (
+                  str &&
+                  !item.showChildren &&
+                  item[this.dataChildren]?.length
+                ) {
                   item.showChildren = true
                 }
                 res.push({
@@ -341,22 +405,6 @@ export default {
         }
       })
       return res
-    },
-    // 更新试图 搜索的数据如果是父子联动有时候不能正常显示
-    updateTreeData(arr) {
-      if (!arr.length) return
-      for (let i = 0; i < arr.length; i++) {
-        const truthNode = this.getTruthNode(arr[i])
-        if (truthNode) {
-          arr[i].checked = truthNode.checked
-          if (arr[i][this.dataChildren]?.length) {
-            this.updateTreeData(arr[i][this.dataChildren])
-          }
-        }
-      }
-    },
-    getContentHeight({ screenHeight }) {
-      this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
     },
     // 懒加载
     renderTree(arr) {
@@ -433,9 +481,7 @@ export default {
     // 初始化数据
     initData(arr) {
       for (let i = 0; i < arr.length; i++) {
-        if (this.selectList.includes(arr[i][this.dataValue].toString())) {
-          this.$set(arr[i], 'checked', true)
-        } else {
+        if (!('checked' in arr[i])) {
           this.$set(arr[i], 'checked', false)
         }
         if (arr[i].disabled) {
@@ -458,19 +504,18 @@ export default {
         } else {
           this.$set(arr[i], 'showChildren', this.showChildren)
         }
+        // #ifndef MP-WEIXIN
         if (!arr[i].handleNodeClick) {
           this.$set(arr[i], 'handleNodeClick', this.handleNodeClick)
         }
         if (!arr[i].handleHideChildren) {
           this.$set(arr[i], 'handleHideChildren', this.handleHideChildren)
         }
+        // #endif
         if (arr[i][this.dataChildren]?.length) {
           this.initData(arr[i][this.dataChildren])
         }
       }
-    },
-    isString(data) {
-      return typeof data === 'string'
     },
     // 获取某个节点所有子元素
     getChildren(node) {
@@ -489,79 +534,33 @@ export default {
     // 获取某个节点所有父元素
     getParentNode(target, arr) {
       let res = []
+
       for (let i = 0; i < arr.length; i++) {
         if (arr[i][this.dataValue] === target[this.dataValue]) {
-          return [arr[i]]
+          return true
         }
+
         if (arr[i][this.dataChildren]?.length) {
-          const result = this.getParentNode(target, arr[i][this.dataChildren])
-          if (result.length && arr[i].visible) {
-            res = [...result, arr[i]]
+          const childRes = this.getParentNode(target, arr[i][this.dataChildren])
+          if (arr[i].visible) {
+            if (typeof childRes === 'boolean' && childRes) {
+              res = [arr[i]]
+            } else if (Array.isArray(childRes) && childRes.length) {
+              res = [...childRes, arr[i]]
+            }
           }
         }
       }
+
       return res
     },
-    // 获取某个节点所有兄弟元素
-    getContiguousNodes(target, arr) {
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i][this.dataValue] === target[this.dataValue]) {
-          return arr.reduce((pre, val) => {
-            if (val.visible) {
-              return [...pre, val]
-            }
-            return pre
-          }, [])
-        }
-        if (arr[i][this.dataChildren]?.length) {
-          const res = this.getContiguousNodes(target, arr[i][this.dataChildren])
-          if (res.length) return res
-        }
-      }
-      return []
-    },
-    // 某个节点下一层所有节点是否都被选中
-    allChecked(value, arr) {
-      for (let i = 0; i < arr.length; i++) {
-        if (!value.includes(arr[i][this.dataValue].toString())) {
-          return false
-        }
-      }
-      return true
-    },
-    // 获取treeData中对应数据
-    getTruthNode(node) {
-      const arr = [...this.treeData]
-      while (arr.length) {
-        const item = arr.shift()
-        if (item[this.dataValue] === node[this.dataValue]) {
-          return item
-        }
-        if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
-        }
-      }
-      return null
-    },
-    getFilterTreeNode(node) {
-      const arr = [...this.filterTreeData]
-      while (arr.length) {
-        const item = arr.shift()
-        if (item[this.dataValue] === node[this.dataValue]) {
-          return item
-        }
-        if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
-        }
-      }
-      return null
-    },
     // 点击checkbox
-    handleNodeClick(node) {
-      node = this.getTruthNode(node)
+    handleNodeClick(data) {
+      const node = this.getTruthNode(data)
       node.checked = !node.checked
       // 如果是单选不考虑其他情况
       if (!this.mutiple) {
+        this.changeStatus(this.selectList, false)
         if (node.checked) {
           this.$emit(
             'input',
@@ -572,7 +571,6 @@ export default {
         } else {
           this.$emit('input', this.isString(this.value) ? '' : [])
         }
-        this.close()
       } else {
         // 多选情况
         if (!this.linkage) {
@@ -594,17 +592,10 @@ export default {
         } else {
           // 需要联动
           let emitData = [...this.selectList]
-          let childrenVal = []
-          if (node[this.dataChildren]?.length) {
-            childrenVal = this.getChildren(node)
-              .filter((item) => !item.disabled)
-              .map((item) => item[this.dataValue].toString())
-          }
-          const contiguousNodes = this.getContiguousNodes(
-            node,
-            this.treeData
-          ).filter((item) => !item.disabled)
-          const [_, ...parentNodes] = this.getParentNode(node, this.treeData)
+          const parentNodes = this.getParentNode(node, this.treeData)
+          const childrenVal = this.getChildren(node).filter(
+            (item) => !item.disabled
+          )
           if (node.checked) {
             // 选中
             emitData = Array.from(
@@ -612,20 +603,24 @@ export default {
             )
             if (childrenVal.length) {
               // 选中全部子节点
-              emitData = Array.from(new Set([...emitData, ...childrenVal]))
+              childrenVal.forEach((item) => (item.checked = true))
+              emitData = Array.from(
+                new Set([
+                  ...emitData,
+                  ...childrenVal.map((item) => item[this.dataValue].toString())
+                ])
+              )
             }
-            if (
-              parentNodes.length &&
-              this.allChecked(emitData, contiguousNodes)
-            ) {
+            if (parentNodes.length) {
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
                 const item = parentNodes.shift()
                 if (!item.disabled) {
-                  const children = this.getChildren(item).filter(
-                    (child) => !child.disabled
+                  const allChecked = item[this.dataChildren].every(
+                    (node) => node.checked
                   )
-                  if (this.allChecked(emitData, children)) {
+                  if (allChecked) {
+                    item.checked = true
                     emitData = Array.from(
                       new Set([...emitData, item[this.dataValue].toString()])
                     )
@@ -640,10 +635,21 @@ export default {
             emitData = emitData.filter(
               (id) => id !== node[this.dataValue].toString()
             )
+            if (parentNodes.length) {
+              parentNodes.forEach((parentNode) => {
+                parentNode.checked = false
+                emitData = emitData.filter(
+                  (id) => id !== parentNode[this.dataValue].toString()
+                )
+              })
+            }
             if (childrenVal.length) {
               // 取消选中全部子节点
-              childrenVal.forEach((childVal) => {
-                emitData = emitData.filter((id) => id !== childVal)
+              childrenVal.forEach((childNode) => {
+                childNode.checked = false
+                emitData = emitData.filter(
+                  (id) => id !== childNode[this.dataValue].toString()
+                )
               })
             }
           }
@@ -656,25 +662,66 @@ export default {
     },
     // 点击名称折叠或展开
     handleHideChildren(node) {
-      this.getFilterTreeNode(node).showChildren =
-        !this.getFilterTreeNode(node).showChildren
+      if (this.searchStr) {
+        this.getFilterTreeNode(node).showChildren =
+          !this.getFilterTreeNode(node).showChildren
+        this.getTruthNode(node).showChildren =
+          !this.getTruthNode(node).showChildren
+      } else {
+        this.getTruthNode(node).showChildren =
+          !this.getTruthNode(node).showChildren
+      }
     },
     // 根据id展示内容
-    getName(id) {
-      const arr = [...this.treeData]
+    getselectedInfo(ids) {
+      if (!ids.length) return []
+      const res = []
+      const arr = this.treeData.length ? [...this.treeData] : [...this.listData]
+      const data =
+        typeof ids === 'string'
+          ? ids.split(',')
+          : ids.map((item) => item.toString())
+
       while (arr.length) {
         const item = arr.shift()
-        if (item[this.dataValue].toString() === id) {
-          return item[this.dataLabel]
+        if (data.includes(item[this.dataValue].toString())) {
+          res.push({
+            [this.dataLabel]: item[this.dataLabel],
+            [this.dataValue]: item[this.dataValue].toString()
+          })
         }
         if (item[this.dataChildren]?.length) {
           arr.push(...item[this.dataChildren])
         }
       }
-      return ''
+
+      return res
+    },
+    // 根据 dataValue 找节点
+    changeStatus(ids, checkedState) {
+      const arr = [...this.treeData]
+      const data =
+        typeof ids === 'string'
+          ? ids.split(',')
+          : ids.map((item) => item.toString())
+
+      while (arr.length) {
+        const item = arr.shift()
+
+        if (data.includes(item[this.dataValue].toString())) {
+          this.$set(item, 'checked', checkedState)
+        }
+
+        if (item[this.dataChildren]?.length) {
+          arr.push(...item[this.dataChildren])
+        }
+      }
+
+      return null
     },
     // 移除选项
     removeSelectedItem(id) {
+      this.changeStatus([id], false)
       const emitData = this.selectList.filter((item) => item !== id)
       this.$emit(
         'input',
@@ -684,6 +731,9 @@ export default {
     // 清空选项
     clear() {
       if (this.disabled) return
+
+      this.changeStatus(this.selectList, false)
+
       this.$emit('input', this.isString(this.value) ? '' : [])
     }
   }
