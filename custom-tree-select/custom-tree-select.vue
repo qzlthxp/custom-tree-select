@@ -481,7 +481,9 @@ export default {
     // 初始化数据
     initData(arr) {
       for (let i = 0; i < arr.length; i++) {
-        if (!('checked' in arr[i])) {
+        if (this.selectList.includes(arr[i][this.dataValue].toString())) {
+          this.$set(arr[i], 'checked', true)
+        } else {
           this.$set(arr[i], 'checked', false)
         }
         if (arr[i].disabled) {
