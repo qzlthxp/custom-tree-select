@@ -57,13 +57,16 @@
     >
       <view class="popup-content" :style="{ height: contentHeight }">
         <view class="title">
+          <view v-if="canSelectAll" class="left" @click="handleSelectAll">
+            <text>全选</text>
+          </view>
           <view class="center">
             <text>{{ placeholder }}</text>
           </view>
           <view
-            :style="{ color: confirmTextColor }"
             class="right"
-            @click="close()"
+            :style="{ color: confirmTextColor }"
+            @click="close"
           >
             <text>{{ confirmText }}</text>
           </view>
@@ -129,6 +132,14 @@ export default {
     event: 'input'
   },
   props: {
+    canSelectAll: {
+      type: Boolean,
+      default: true
+    },
+    safeArea: {
+      type: Boolean,
+      default: true
+    },
     search: {
       type: Boolean,
       default: false
@@ -246,7 +257,7 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
-          this.treeData = this.deepCopy(newVal)
+          this.treeData = this.deepClone(newVal)
           this.initData(this.treeData)
           if (this.showPopup) {
             this.resetClearTimerList()
@@ -319,31 +330,35 @@ export default {
     isString(data) {
       return typeof data === 'string'
     },
-    deepCopy(target) {
-      let copyed_objs = []
-      function _deepCopy(target) {
-        if (typeof target !== 'object' || !target) {
-          return target
+    deepClone(obj, cache = new WeakMap()) {
+      if (obj === null || typeof obj !== 'object') return obj
+      if (cache.has(obj)) return cache.get(obj)
+      let clone
+      if (obj instanceof Date) {
+        clone = new Date(obj.getTime())
+      } else if (obj instanceof RegExp) {
+        clone = new RegExp(obj)
+      } else if (obj instanceof Map) {
+        clone = new Map(
+          Array.from(obj, ([key, value]) => [key, this.deepClone(value, cache)])
+        )
+      } else if (obj instanceof Set) {
+        clone = new Set(
+          Array.from(obj, (value) => this.deepClone(value, cache))
+        )
+      } else if (Array.isArray(obj)) {
+        clone = obj.map((value) => this.deepClone(value, cache))
+      } else if (Object.prototype.toString.call(obj) === '[object Object]') {
+        clone = Object.create(Object.getPrototypeOf(obj))
+        cache.set(obj, clone)
+        for (const [key, value] of Object.entries(obj)) {
+          clone[key] = this.deepClone(value, cache)
         }
-        for (let i = 0; i < copyed_objs.length; i++) {
-          if (copyed_objs[i].target === target) {
-            return copyed_objs[i].copyTarget
-          }
-        }
-        let obj = {}
-        if (Array.isArray(target)) {
-          obj = []
-        }
-        copyed_objs.push({ target: target, copyTarget: obj })
-        Object.keys(target).forEach((key) => {
-          if (obj[key]) {
-            return
-          }
-          obj[key] = _deepCopy(target[key])
-        })
-        return obj
+      } else {
+        clone = Object.assign({}, obj)
       }
-      return _deepCopy(target)
+      cache.set(obj, clone)
+      return clone
     },
     // 分页
     paging(data, PAGENUM = 50) {
@@ -562,17 +577,14 @@ export default {
       node.checked = !node.checked
       // 如果是单选不考虑其他情况
       if (!this.mutiple) {
-        this.changeStatus(this.selectList, false)
+        let emitData = []
         if (node.checked) {
-          this.$emit(
-            'input',
-            this.isString(this.value)
-              ? node[this.dataValue].toString()
-              : [node[this.dataValue].toString()]
-          )
-        } else {
-          this.$emit('input', this.isString(this.value) ? '' : [])
+          emitData = [node[this.dataValue].toString()]
         }
+        this.$emit(
+          'input',
+          this.isString(this.value) ? emitData.join(',') : emitData
+        )
       } else {
         // 多选情况
         if (!this.linkage) {
@@ -604,8 +616,6 @@ export default {
               new Set([...emitData, node[this.dataValue].toString()])
             )
             if (childrenVal.length) {
-              // 选中全部子节点
-              childrenVal.forEach((item) => (item.checked = true))
               emitData = Array.from(
                 new Set([
                   ...emitData,
@@ -614,6 +624,7 @@ export default {
               )
             }
             if (parentNodes.length) {
+              console.log(parentNodes)
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
                 const item = parentNodes.shift()
@@ -622,7 +633,6 @@ export default {
                     (node) => node.checked
                   )
                   if (allChecked) {
-                    item.checked = true
                     emitData = Array.from(
                       new Set([...emitData, item[this.dataValue].toString()])
                     )
@@ -639,7 +649,6 @@ export default {
             )
             if (parentNodes.length) {
               parentNodes.forEach((parentNode) => {
-                parentNode.checked = false
                 emitData = emitData.filter(
                   (id) => id !== parentNode[this.dataValue].toString()
                 )
@@ -648,7 +657,6 @@ export default {
             if (childrenVal.length) {
               // 取消选中全部子节点
               childrenVal.forEach((childNode) => {
-                childNode.checked = false
                 emitData = emitData.filter(
                   (id) => id !== childNode[this.dataValue].toString()
                 )
@@ -712,6 +720,8 @@ export default {
 
         if (data.includes(item[this.dataValue].toString())) {
           this.$set(item, 'checked', checkedState)
+        } else {
+          this.$set(item, 'checked', !checkedState)
         }
 
         if (item[this.dataChildren]?.length) {
@@ -725,6 +735,39 @@ export default {
     removeSelectedItem(id) {
       this.changeStatus([id], false)
       const emitData = this.selectList.filter((item) => item !== id)
+      this.$emit(
+        'input',
+        this.isString(this.value) ? emitData.join(',') : emitData
+      )
+    },
+    // 全部选中
+    handleSelectAll() {
+      if (!this.mutiple) {
+        uni.showToast({
+          title: '单选模式下不能全选',
+          icon: 'none',
+          duration: 1000
+        })
+        return
+      }
+      let emitData = []
+      this.treeData.forEach((item) => {
+        if (item.visible && !item.disabled) {
+          emitData = Array.from(
+            new Set([...emitData, item[this.dataValue].toString()])
+          )
+          if (item[this.dataChildren]?.length) {
+            emitData = Array.from(
+              new Set([
+                ...emitData,
+                ...this.getChildren(item)
+                  .filter((item) => !item.disabled)
+                  .map((item) => item[this.dataValue].toString())
+              ])
+            )
+          }
+        }
+      })
       this.$emit(
         'input',
         this.isString(this.value) ? emitData.join(',') : emitData
@@ -828,12 +871,14 @@ export default {
       display: flex;
       justify-content: space-between;
       position: relative;
-
+      .left {
+        position: absolute;
+        left: 10px;
+      }
       .center {
         flex: 1;
         text-align: center;
       }
-
       .right {
         position: absolute;
         right: 10px;
