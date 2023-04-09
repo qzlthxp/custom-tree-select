@@ -78,13 +78,14 @@
             placeholder="搜索"
             v-model="searchStr"
             confirm-type="search"
-            @confirm="handleSearch"
+            @confirm="handleSearch(false)"
+            @clear="handleSearch(true)"
           ></uni-easyinput>
           <button
             type="primary"
             size="mini"
             class="search-btn"
-            @click="handleSearch"
+            @click="handleSearch(false)"
           >
             搜索
           </button>
@@ -121,6 +122,7 @@
 </template>
 
 <script>
+import { isString, deepClone, paging } from './utils'
 import dataSelectItem from './data-select-item.vue'
 export default {
   name: 'custom-tree-select',
@@ -141,6 +143,10 @@ export default {
       default: true
     },
     search: {
+      type: Boolean,
+      default: false
+    },
+    clearResetSearch: {
       type: Boolean,
       default: false
     },
@@ -232,6 +238,7 @@ export default {
       filterTreeData: [],
       clearTimerList: [],
       showPopup: false,
+      isSelectedAll: false,
       clickOpenTimer: null,
       scrollTop: 0,
       searchStr: ''
@@ -240,7 +247,7 @@ export default {
   computed: {
     selectList() {
       const newVal = this.value === null ? '' : this.value
-      return this.isString(newVal)
+      return isString(newVal)
         ? newVal.length
           ? newVal.split(',')
           : []
@@ -257,7 +264,8 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
-          this.treeData = this.deepClone(newVal)
+          this.treeData = deepClone(newVal)
+          this.isSelectedAll = true
           this.initData(this.treeData)
           if (this.showPopup) {
             this.resetClearTimerList()
@@ -274,8 +282,8 @@ export default {
             ? newVal
             : newVal.split(',')
           : []
-        this.changeStatus(ids, true)
-        this.updateTreeData(this.filterTreeData)
+        this.changeStatus(this.treeData, ids, true)
+        this.changeStatus(this.filterTreeData, ids, true)
       }
     }
   },
@@ -283,18 +291,12 @@ export default {
     this.getContentHeight(uni.getSystemInfoSync())
   },
   methods: {
-    // 更新试图 搜索的数据如果是父子联动有时候不能正常显示
-    updateTreeData(arr) {
-      if (!arr.length) return
-      for (let i = 0; i < arr.length; i++) {
-        const truthNode = this.getTruthNode(arr[i])
-        if (truthNode) {
-          arr[i].checked = truthNode.checked
-          if (arr[i][this.dataChildren]?.length) {
-            this.updateTreeData(arr[i][this.dataChildren])
-          }
-        }
-      }
+    // 搜索完成返回顶部
+    goTop() {
+      this.scrollTop = 10
+      this.$nextTick(() => {
+        this.scrollTop = 0
+      })
     },
     // 获取treeData中对应数据
     getTruthNode(node) {
@@ -327,63 +329,17 @@ export default {
     getContentHeight({ screenHeight }) {
       this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
     },
-    isString(data) {
-      return typeof data === 'string'
-    },
-    deepClone(obj, cache = new WeakMap()) {
-      if (obj === null || typeof obj !== 'object') return obj
-      if (cache.has(obj)) return cache.get(obj)
-      let clone
-      if (obj instanceof Date) {
-        clone = new Date(obj.getTime())
-      } else if (obj instanceof RegExp) {
-        clone = new RegExp(obj)
-      } else if (obj instanceof Map) {
-        clone = new Map(
-          Array.from(obj, ([key, value]) => [key, this.deepClone(value, cache)])
-        )
-      } else if (obj instanceof Set) {
-        clone = new Set(
-          Array.from(obj, (value) => this.deepClone(value, cache))
-        )
-      } else if (Array.isArray(obj)) {
-        clone = obj.map((value) => this.deepClone(value, cache))
-      } else if (Object.prototype.toString.call(obj) === '[object Object]') {
-        clone = Object.create(Object.getPrototypeOf(obj))
-        cache.set(obj, clone)
-        for (const [key, value] of Object.entries(obj)) {
-          clone[key] = this.deepClone(value, cache)
+    // 处理搜索
+    handleSearch(isClear = false) {
+      this.resetClearTimerList()
+      if (isClear) {
+        // 点击清空按钮并且设置清空按钮会重置搜索
+        if (this.clearResetSearch) {
+          this.renderTree(this.treeData)
         }
       } else {
-        clone = Object.assign({}, obj)
+        this.renderTree(this.searchValue(this.searchStr, this.treeData))
       }
-      cache.set(obj, clone)
-      return clone
-    },
-    // 分页
-    paging(data, PAGENUM = 50) {
-      if (!Array.isArray(data) || !data.length) return data
-      const pages = []
-      data.forEach((item, index) => {
-        const i = Math.floor(index / PAGENUM)
-        if (!pages[i]) {
-          pages[i] = []
-        }
-        pages[i].push(item)
-      })
-      return pages
-    },
-    // 搜索完成返回顶部
-    goTop() {
-      this.scrollTop = 10
-      this.$nextTick(() => {
-        this.scrollTop = 0
-      })
-    },
-    // 处理搜索
-    handleSearch() {
-      this.resetClearTimerList()
-      this.renderTree(this.searchValue(this.searchStr, this.treeData))
       this.goTop()
       uni.hideKeyboard()
     },
@@ -423,7 +379,7 @@ export default {
     },
     // 懒加载
     renderTree(arr) {
-      const pagingArr = this.paging(arr)
+      const pagingArr = paging(arr)
       this.filterTreeData.splice(
         0,
         this.filterTreeData.length,
@@ -440,6 +396,12 @@ export default {
         }, i * 500)
         this.clearTimerList.push(() => clearTimeout(timer))
       }
+    },
+    // 中断懒加载
+    resetClearTimerList() {
+      const list = [...this.clearTimerList]
+      this.clearTimerList.splice(0, this.clearTimerList.length)
+      list.forEach((item) => item())
     },
     // 打开弹窗
     open() {
@@ -483,12 +445,6 @@ export default {
       }
       this.$emit('change', data)
     },
-    // 中断懒加载
-    resetClearTimerList() {
-      const list = [...this.clearTimerList]
-      this.clearTimerList.splice(0, this.clearTimerList.length)
-      list.forEach((item) => item())
-    },
     // 点击遮罩
     maskClick() {
       this.$emit('maskClick')
@@ -529,6 +485,9 @@ export default {
           this.$set(arr[i], 'handleHideChildren', this.handleHideChildren)
         }
         // #endif
+        if (arr[i].visible && !arr[i].disabled && !arr[i].checked) {
+          this.isSelectedAll = false
+        }
         if (arr[i][this.dataChildren]?.length) {
           this.initData(arr[i][this.dataChildren])
         }
@@ -583,7 +542,7 @@ export default {
         }
         this.$emit(
           'input',
-          this.isString(this.value) ? emitData.join(',') : emitData
+          isString(this.value) ? emitData.join(',') : emitData
         )
       } else {
         // 多选情况
@@ -601,7 +560,7 @@ export default {
           }
           this.$emit(
             'input',
-            this.isString(this.value) ? emitData.join(',') : emitData
+            isString(this.value) ? emitData.join(',') : emitData
           )
         } else {
           // 需要联动
@@ -624,7 +583,6 @@ export default {
               )
             }
             if (parentNodes.length) {
-              console.log(parentNodes)
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
                 const item = parentNodes.shift()
@@ -633,6 +591,7 @@ export default {
                     (node) => node.checked
                   )
                   if (allChecked) {
+                    item.checked = true
                     emitData = Array.from(
                       new Set([...emitData, item[this.dataValue].toString()])
                     )
@@ -665,22 +624,25 @@ export default {
           }
           this.$emit(
             'input',
-            this.isString(this.value) ? emitData.join(',') : emitData
+            isString(this.value) ? emitData.join(',') : emitData
           )
         }
       }
     },
     // 点击名称折叠或展开
     handleHideChildren(node) {
-      if (this.searchStr) {
-        this.getFilterTreeNode(node).showChildren =
-          !this.getFilterTreeNode(node).showChildren
-        this.getTruthNode(node).showChildren =
-          !this.getTruthNode(node).showChildren
-      } else {
-        this.getTruthNode(node).showChildren =
-          !this.getTruthNode(node).showChildren
-      }
+      node.showChildren = !node.showChildren
+      // this.$nextTick(() => {
+      //   if (this.searchStr) {
+      //     this.getFilterTreeNode(node).showChildren =
+      //       !this.getFilterTreeNode(node).showChildren
+      //     this.getTruthNode(node).showChildren =
+      //       !this.getTruthNode(node).showChildren
+      //   } else {
+      //     this.getTruthNode(node).showChildren =
+      //       !this.getTruthNode(node).showChildren
+      //   }
+      // })
     },
     // 根据id展示内容
     getselectedInfo(ids) {
@@ -708,8 +670,8 @@ export default {
       return res
     },
     // 根据 dataValue 找节点
-    changeStatus(ids, checkedState) {
-      const arr = [...this.treeData]
+    changeStatus(list, ids, checkedState) {
+      const arr = [...list]
       const data =
         typeof ids === 'string'
           ? ids.split(',')
@@ -724,6 +686,10 @@ export default {
           this.$set(item, 'checked', !checkedState)
         }
 
+        if (!item.checked) {
+          this.isSelectedAll = false
+        }
+
         if (item[this.dataChildren]?.length) {
           arr.push(...item[this.dataChildren])
         }
@@ -733,15 +699,14 @@ export default {
     },
     // 移除选项
     removeSelectedItem(id) {
-      this.changeStatus([id], false)
+      this.changeStatus(this.treeData, [id], false)
       const emitData = this.selectList.filter((item) => item !== id)
-      this.$emit(
-        'input',
-        this.isString(this.value) ? emitData.join(',') : emitData
-      )
+      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
     },
     // 全部选中
     handleSelectAll() {
+      if (this.isSelectedAll) return
+      this.isSelectedAll = true
       if (!this.mutiple) {
         uni.showToast({
           title: '单选模式下不能全选',
@@ -768,18 +733,12 @@ export default {
           }
         }
       })
-      this.$emit(
-        'input',
-        this.isString(this.value) ? emitData.join(',') : emitData
-      )
+      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
     },
     // 清空选项
     clear() {
       if (this.disabled) return
-
-      this.changeStatus(this.selectList, false)
-
-      this.$emit('input', this.isString(this.value) ? '' : [])
+      this.$emit('input', isString(this.value) ? '' : [])
     }
   }
 }
