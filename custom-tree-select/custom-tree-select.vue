@@ -57,7 +57,11 @@
     >
       <view class="popup-content" :style="{ height: contentHeight }">
         <view class="title">
-          <view v-if="canSelectAll" class="left" @click="handleSelectAll">
+          <view
+            v-if="mutiple && canSelectAll"
+            class="left"
+            @click="handleSelectAll"
+          >
             <text>全选</text>
           </view>
           <view class="center">
@@ -136,7 +140,7 @@ export default {
   props: {
     canSelectAll: {
       type: Boolean,
-      default: true
+      default: false
     },
     safeArea: {
       type: Boolean,
@@ -631,18 +635,9 @@ export default {
     },
     // 点击名称折叠或展开
     handleHideChildren(node) {
-      node.showChildren = !node.showChildren
-      // this.$nextTick(() => {
-      //   if (this.searchStr) {
-      //     this.getFilterTreeNode(node).showChildren =
-      //       !this.getFilterTreeNode(node).showChildren
-      //     this.getTruthNode(node).showChildren =
-      //       !this.getTruthNode(node).showChildren
-      //   } else {
-      //     this.getTruthNode(node).showChildren =
-      //       !this.getTruthNode(node).showChildren
-      //   }
-      // })
+      const status = !node.showChildren
+      this.getTruthNode(node).showChildren = status
+      this.getFilterTreeNode(node).showChildren = status
     },
     // 根据id展示内容
     getselectedInfo(ids) {
