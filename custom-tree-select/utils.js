@@ -44,3 +44,15 @@ export function paging(data, PAGENUM = 50) {
   })
   return pages
 }
+
+export function changeChildrenVisibleStatus(node, dataChildren) {
+  if (!node[dataChildren]?.length) return
+
+  for (let i = 0; i < node[dataChildren].length; i++) {
+    node[dataChildren][i].visible = false
+
+    if (node[dataChildren][i][dataChildren]?.length) {
+      changeChildrenVisibleStatus(node[dataChildren][i], dataChildren)
+    }
+  }
+}

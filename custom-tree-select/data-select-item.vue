@@ -51,7 +51,7 @@
       "
     >
       <data-select-item
-        v-for="item in node[dataChildren]"
+        v-for="item in listData"
         :key="item[dataValue]"
         :node="item"
         :dataLabel="dataLabel"
@@ -67,6 +67,7 @@
 
 <script>
 import dataSelectItem from './data-select-item.vue'
+import { paging } from './utils'
 export default {
   name: 'data-select-item',
   components: {
@@ -102,25 +103,79 @@ export default {
       default: 0
     }
   },
-  methods: {
-    nameClick(node) {
-      // #ifdef MP-WEIXIN
-      this.$bus.$emit('custom-tree-select-name-click', node)
-      // #endif
+  data() {
+    return {
+      listData: [],
+      clearTimerList: []
+    }
+  },
+  computed: {
+    watchData() {
+      const { node, dataChildren } = this
 
-      // #ifndef MP-WEIXIN
-      node.handleHideChildren(node)
-      // #endif
+      return {
+        node,
+        dataChildren
+      }
+    }
+  },
+  watch: {
+    watchData: {
+      immediate: true,
+      handler(newVal) {
+        const { node, dataChildren } = newVal
+        if (
+          node.showChildren &&
+          node[dataChildren] &&
+          node[dataChildren].length
+        ) {
+          this.resetClearTimerList()
+          this.renderTree(node[dataChildren])
+        }
+      }
+    }
+  },
+  methods: {
+    // 懒加载
+    renderTree(arr) {
+      const pagingArr = paging(arr)
+      this.listData.splice(0, this.listData.length, ...(pagingArr?.[0] || []))
+      this.lazyRenderList(pagingArr, 1)
+    },
+    // 懒加载具体逻辑
+    lazyRenderList(arr, startIndex) {
+      for (let i = startIndex; i < arr.length; i++) {
+        let timer = null
+        timer = setTimeout(() => {
+          this.listData.push(...arr[i])
+        }, i * 500)
+        this.clearTimerList.push(() => clearTimeout(timer))
+      }
+    },
+    // 中断懒加载
+    resetClearTimerList() {
+      const list = [...this.clearTimerList]
+      this.clearTimerList.splice(0, this.clearTimerList.length)
+      list.forEach((item) => item())
+    },
+    nameClick(node) {
+      if (
+        !node.showChildren &&
+        node[this.dataChildren] &&
+        node[this.dataChildren].length
+      ) {
+        // 打开
+        this.renderTree(node[this.dataChildren])
+      } else {
+        // 关闭
+        this.resetClearTimerList()
+        this.listData.splice(0, this.listData.length)
+      }
+      uni.$emit('custom-tree-select-name-click', node)
     },
     nodeClick(node) {
       if (!node.disabled) {
-        // #ifdef MP-WEIXIN
-        this.$bus.$emit('custom-tree-select-node-click', node)
-        // #endif
-
-        // #ifndef MP-WEIXIN
-        node.handleNodeClick(node)
-        // #endif
+        uni.$emit('custom-tree-select-node-click', node)
       }
     }
   },

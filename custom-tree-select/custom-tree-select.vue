@@ -126,7 +126,12 @@
 </template>
 
 <script>
-import { isString, deepClone, paging } from './utils'
+import {
+  isString,
+  deepClone,
+  paging,
+  changeChildrenVisibleStatus
+} from './utils'
 import dataSelectItem from './data-select-item.vue'
 export default {
   name: 'custom-tree-select',
@@ -424,19 +429,11 @@ export default {
     // 弹窗状态变化 包括点击回显框和遮罩
     change(data) {
       if (data.show) {
-        // #ifdef MP-WEIXIN
-        this.$bus.$on('custom-tree-select-node-click', (node) => {
-          this.handleNodeClick(node)
-        })
-        this.$bus.$on('custom-tree-select-name-click', (node) => {
-          this.handleHideChildren(node)
-        })
-        // #endif
+        uni.$on('custom-tree-select-node-click', this.handleNodeClick)
+        uni.$on('custom-tree-select-name-click', this.handleHideChildren)
       } else {
-        // #ifdef MP-WEIXIN
-        this.$bus.$off('custom-tree-select-node-click')
-        this.$bus.$off('custom-tree-select-name-click')
-        // #endif
+        uni.$off('custom-tree-select-node-click', this.handleNodeClick)
+        uni.$off('custom-tree-select-name-click', this.handleHideChildren)
         this.resetClearTimerList()
         this.searchStr = ''
         if (this.animation) {
@@ -468,11 +465,7 @@ export default {
         }
         if (JSON.stringify(arr[i].visible) === 'false') {
           this.$set(arr[i], 'visible', false)
-          if (arr[i][this.dataChildren]?.length) {
-            for (let j = 0; j < arr[i][this.dataChildren].length; j++) {
-              arr[i][this.dataChildren][j].visible = false
-            }
-          }
+          changeChildrenVisibleStatus(arr[i], this.dataChildren)
         } else {
           this.$set(arr[i], 'visible', true)
         }
@@ -481,14 +474,6 @@ export default {
         } else {
           this.$set(arr[i], 'showChildren', this.showChildren)
         }
-        // #ifndef MP-WEIXIN
-        if (!arr[i].handleNodeClick) {
-          this.$set(arr[i], 'handleNodeClick', this.handleNodeClick)
-        }
-        if (!arr[i].handleHideChildren) {
-          this.$set(arr[i], 'handleHideChildren', this.handleHideChildren)
-        }
-        // #endif
         if (arr[i].visible && !arr[i].disabled && !arr[i].checked) {
           this.isSelectedAll = false
         }
