@@ -126,12 +126,7 @@
 </template>
 
 <script>
-import {
-  isString,
-  deepClone,
-  paging,
-  changeChildrenVisibleStatus
-} from './utils'
+import { isString, paging } from './utils'
 import dataSelectItem from './data-select-item.vue'
 export default {
   name: 'custom-tree-select',
@@ -273,9 +268,8 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
-          this.treeData = deepClone(newVal)
           this.isSelectedAll = true
-          this.initData(this.treeData)
+          this.treeData = this.initData(newVal)
           if (this.showPopup) {
             this.resetClearTimerList()
             this.renderTree(this.treeData)
@@ -451,36 +445,49 @@ export default {
       this.$emit('maskClick')
     },
     // 初始化数据
-    initData(arr) {
+    initData(arr, parentVisible) {
+      if (!Array.isArray(arr)) return []
+      const res = []
+
       for (let i = 0; i < arr.length; i++) {
-        if (this.selectList.includes(arr[i][this.dataValue].toString())) {
-          this.$set(arr[i], 'checked', true)
-        } else {
-          this.$set(arr[i], 'checked', false)
+        const obj = {
+          [this.dataLabel]: arr[i][this.dataLabel],
+          [this.dataValue]: arr[i][this.dataValue]
         }
-        if (arr[i].disabled) {
-          this.$set(arr[i], 'disabled', true)
-        } else {
-          this.$set(arr[i], 'disabled', false)
-        }
-        if (JSON.stringify(arr[i].visible) === 'false') {
-          this.$set(arr[i], 'visible', false)
-          changeChildrenVisibleStatus(arr[i], this.dataChildren)
-        } else {
-          this.$set(arr[i], 'visible', true)
-        }
-        if ('showChildren' in arr[i] && arr[i].showChildren != undefined) {
-          this.$set(arr[i], 'showChildren', arr[i].showChildren)
-        } else {
-          this.$set(arr[i], 'showChildren', this.showChildren)
-        }
+
+        obj.checked = this.selectList.includes(
+          arr[i][this.dataValue].toString()
+        )
+
+        obj.disabled = Boolean(arr[i].disabled)
+
+        obj.visible =
+          arr[i].visible === undefined
+            ? parentVisible === undefined
+              ? true
+              : parentVisible
+            : arr[i].visible
+
+        obj.showChildren =
+          'showChildren' in arr[i] && arr[i].showChildren != undefined
+            ? arr[i].showChildren
+            : this.showChildren
+
         if (arr[i].visible && !arr[i].disabled && !arr[i].checked) {
           this.isSelectedAll = false
         }
+
         if (arr[i][this.dataChildren]?.length) {
-          this.initData(arr[i][this.dataChildren])
+          obj[this.dataChildren] = this.initData(
+            arr[i][this.dataChildren],
+            obj.visible
+          )
         }
+
+        res.push(obj)
       }
+
+      return res
     },
     // 获取某个节点所有子元素
     getChildren(node) {
@@ -507,12 +514,10 @@ export default {
 
         if (arr[i][this.dataChildren]?.length) {
           const childRes = this.getParentNode(target, arr[i][this.dataChildren])
-          if (arr[i].visible) {
-            if (typeof childRes === 'boolean' && childRes) {
-              res = [arr[i]]
-            } else if (Array.isArray(childRes) && childRes.length) {
-              res = [...childRes, arr[i]]
-            }
+          if (typeof childRes === 'boolean' && childRes) {
+            res = [arr[i]]
+          } else if (Array.isArray(childRes) && childRes.length) {
+            res = [...childRes, arr[i]]
           }
         }
       }
@@ -576,9 +581,9 @@ export default {
               while (parentNodes.length) {
                 const item = parentNodes.shift()
                 if (!item.disabled) {
-                  const allChecked = item[this.dataChildren].every(
-                    (node) => node.checked
-                  )
+                  const allChecked = item[this.dataChildren]
+                    .filter((node) => node.visible)
+                    .every((node) => node.checked)
                   if (allChecked) {
                     item.checked = true
                     emitData = Array.from(
