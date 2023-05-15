@@ -461,12 +461,17 @@ export default {
 
         obj.disabled = Boolean(arr[i].disabled)
 
-        obj.visible =
-          arr[i].visible === undefined
-            ? parentVisible === undefined
-              ? true
-              : parentVisible
-            : arr[i].visible
+        const parentVisibleState =
+          parentVisible === undefined ? true : parentVisible
+        const curVisibleState =
+          arr[i].visible === undefined ? true : Boolean(arr[i].visible)
+        if (parentVisibleState === curVisibleState) {
+          obj.visible = parentVisibleState
+        } else if (!parentVisibleState || !curVisibleState) {
+          obj.visible = false
+        } else {
+          obj.visible = true
+        }
 
         obj.showChildren =
           'showChildren' in arr[i] && arr[i].showChildren != undefined
