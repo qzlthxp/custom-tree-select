@@ -2,7 +2,7 @@
   <view class="custom-tree-select-content">
     <view
       :class="['select-list', { disabled }, { active: selectList.length }]"
-      @click="open"
+      @click.stop="open"
     >
       <view class="left">
         <view v-if="selectList.length" class="select-items">
@@ -60,7 +60,7 @@
           <view
             v-if="mutiple && canSelectAll"
             class="left"
-            @click="handleSelectAll"
+            @click.stop="handleSelectAll"
           >
             <text>全选</text>
           </view>
@@ -70,7 +70,7 @@
           <view
             class="right"
             :style="{ color: confirmTextColor }"
-            @click="close"
+            @click.stop="close"
           >
             <text>{{ confirmText }}</text>
           </view>
@@ -84,12 +84,13 @@
             confirm-type="search"
             @confirm="handleSearch(false)"
             @clear="handleSearch(true)"
-          ></uni-easyinput>
+          >
+          </uni-easyinput>
           <button
             type="primary"
             size="mini"
             class="search-btn"
-            @click="handleSearch(false)"
+            @click.stop="handleSearch(false)"
           >
             搜索
           </button>
@@ -461,6 +462,11 @@ export default {
 
         obj.disabled = Boolean(arr[i].disabled)
 
+        //半选
+        obj.partChecked = Boolean(
+          arr[i].partChecked === undefined ? false : arr[i].partChecked
+        )
+
         const parentVisibleState =
           parentVisible === undefined ? true : parentVisible
         const curVisibleState =
@@ -587,14 +593,16 @@ export default {
                 const item = parentNodes.shift()
                 if (!item.disabled) {
                   const allChecked = item[this.dataChildren]
-                    .filter((node) => node.visible)
+                    .filter((node) => node.visible && !node.disabled)
                     .every((node) => node.checked)
                   if (allChecked) {
                     item.checked = true
+                    item.partChecked = false
                     emitData = Array.from(
                       new Set([...emitData, item[this.dataValue].toString()])
                     )
                   } else {
+                    item.partChecked = true
                     break
                   }
                 }
@@ -605,13 +613,7 @@ export default {
             emitData = emitData.filter(
               (id) => id !== node[this.dataValue].toString()
             )
-            if (parentNodes.length) {
-              parentNodes.forEach((parentNode) => {
-                emitData = emitData.filter(
-                  (id) => id !== parentNode[this.dataValue].toString()
-                )
-              })
-            }
+            node.partChecked = false
             if (childrenVal.length) {
               // 取消选中全部子节点
               childrenVal.forEach((childNode) => {
@@ -619,6 +621,15 @@ export default {
                   (id) => id !== childNode[this.dataValue].toString()
                 )
               })
+            }
+            if (parentNodes.length) {
+              parentNodes.forEach((parentNode) => {
+                emitData = emitData.filter(
+                  (id) => id !== parentNode[this.dataValue].toString()
+                )
+              })
+              parentNodes[parentNodes.length - 1].partChecked =
+                emitData.length === 0 ? false : true
             }
           }
           this.$emit(
@@ -691,6 +702,7 @@ export default {
     removeSelectedItem(id) {
       this.changeStatus(this.treeData, [id], false)
       const emitData = this.selectList.filter((item) => item !== id)
+      this.$emit('removeSelect', id)
       this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
     },
     // 全部选中
@@ -820,14 +832,17 @@ export default {
       display: flex;
       justify-content: space-between;
       position: relative;
+
       .left {
         position: absolute;
         left: 10px;
       }
+
       .center {
         flex: 1;
         text-align: center;
       }
+
       .right {
         position: absolute;
         right: 10px;
@@ -863,6 +878,7 @@ export default {
       bottom: 0;
       left: 0;
     }
+
     .sentry {
       height: 48px;
     }

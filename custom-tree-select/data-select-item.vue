@@ -34,15 +34,21 @@
         </view>
         <checkbox
           v-if="
-            choseParent ||
-            (!choseParent && !node[dataChildren]) ||
-            (!choseParent && node[dataChildren] && !node[dataChildren].length)
+            (choseParent ||
+              (!choseParent && !node[dataChildren]) ||
+              (!choseParent &&
+                node[dataChildren] &&
+                !node[dataChildren].length)) &&
+            !node.partChecked
           "
           :disabled="node.disabled"
           :value="node[dataValue].toString()"
           :checked="node.checked"
           @click.stop="nodeClick(node)"
         />
+        <view class="check-section" v-else>
+          <view class="check-content-section"> </view>
+        </view>
       </view>
     </view>
     <view
@@ -190,6 +196,7 @@ export default {
   &.border {
     border-left: 1px dashed #c8c7cc;
   }
+
   /deep/ .uni-checkbox-input {
     margin: 0 !important;
   }
@@ -215,8 +222,10 @@ export default {
         position: absolute;
         transform: translateX(-50%);
         background-color: #fff;
+
         .icon {
           transition: 0.2s ease;
+
           &.active {
             transform: rotate(90deg);
           }
@@ -238,5 +247,14 @@ export default {
       word-break: break-all;
     }
   }
+}
+.check-section {
+  padding: 4px;
+  border: 1px solid #007aff;
+}
+.check-content-section {
+  width: 14px;
+  height: 14px;
+  background: #007aff;
 }
 </style>
