@@ -15,9 +15,9 @@
               <text>{{ item[dataLabel] }}</text>
             </view>
             <view
-              v-if="!disabled"
+              v-if="!disabled && !item.disabled"
               class="close"
-              @click.stop="removeSelectedItem(item[dataValue])"
+              @click.stop="removeSelectedItem(item)"
             >
               <uni-icons type="closeempty" size="16" color="#999"></uni-icons>
             </view>
@@ -62,7 +62,7 @@
             class="left"
             @click.stop="handleSelectAll"
           >
-            <text>全选</text>
+            <text>{{ isSelectedAll ? '取消全选' : '全选' }}</text>
           </view>
           <view class="center">
             <text>{{ placeholder }}</text>
@@ -127,6 +127,7 @@
 </template>
 
 <script>
+const partCheckedSet = new Set()
 import { isString, paging } from './utils'
 import dataSelectItem from './data-select-item.vue'
 export default {
@@ -242,9 +243,10 @@ export default {
       treeData: [],
       filterTreeData: [],
       clearTimerList: [],
+      selectedListBaseinfo: [],
       showPopup: false,
-      isSelectedAll: false,
       clickOpenTimer: null,
+      isSelectedAll: false,
       scrollTop: 0,
       searchStr: ''
     }
@@ -257,10 +259,6 @@ export default {
           ? newVal.split(',')
           : []
         : newVal.map((item) => item.toString())
-    },
-    selectedListBaseinfo() {
-      const ids = this.value === null ? '' : this.value
-      return this.getselectedInfo(ids)
     }
   },
   watch: {
@@ -269,7 +267,6 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
-          this.isSelectedAll = true
           this.treeData = this.initData(newVal)
           if (this.showPopup) {
             this.resetClearTimerList()
@@ -281,13 +278,16 @@ export default {
     value: {
       immediate: true,
       handler(newVal) {
-        const ids = newVal
-          ? Array.isArray(newVal)
+        if (newVal !== null) {
+          const ids = Array.isArray(newVal)
             ? newVal
-            : newVal.split(',')
-          : []
-        this.changeStatus(this.treeData, ids, true)
-        this.changeStatus(this.filterTreeData, ids, true)
+            : typeof newVal === 'string'
+            ? newVal.split(',')
+            : []
+          this.changeStatus(this.treeData, ids, true, true)
+          this.filterTreeData.length &&
+            this.changeStatus(this.filterTreeData, ids, true)
+        }
       }
     }
   },
@@ -302,33 +302,19 @@ export default {
         this.scrollTop = 0
       })
     },
-    // 获取treeData中对应数据
-    getTruthNode(node) {
-      const arr = [...this.treeData]
-      while (arr.length) {
-        const item = arr.shift()
+    // 获取对应数据
+    getReflectNode(node, arr) {
+      const array = [...arr]
+      while (array.length) {
+        const item = array.shift()
         if (item[this.dataValue] === node[this.dataValue]) {
           return item
         }
         if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
+          array.push(...item[this.dataChildren])
         }
       }
-      return null
-    },
-    // 获取 filterTreeData 中对应数据
-    getFilterTreeNode(node) {
-      const arr = [...this.filterTreeData]
-      while (arr.length) {
-        const item = arr.shift()
-        if (item[this.dataValue] === node[this.dataValue]) {
-          return item
-        }
-        if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
-        }
-      }
-      return null
+      return {}
     },
     getContentHeight({ screenHeight }) {
       this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
@@ -404,8 +390,8 @@ export default {
     // 中断懒加载
     resetClearTimerList() {
       const list = [...this.clearTimerList]
-      this.clearTimerList.splice(0, this.clearTimerList.length)
-      list.forEach((item) => item())
+      this.clearTimerList = []
+      list.forEach((fn) => fn())
     },
     // 打开弹窗
     open() {
@@ -466,6 +452,7 @@ export default {
         obj.partChecked = Boolean(
           arr[i].partChecked === undefined ? false : arr[i].partChecked
         )
+        obj.partChecked && obj.partCheckedSet.add(obj[this.dataValue])
 
         const parentVisibleState =
           parentVisible === undefined ? true : parentVisible
@@ -484,10 +471,6 @@ export default {
             ? arr[i].showChildren
             : this.showChildren
 
-        if (arr[i].visible && !arr[i].disabled && !arr[i].checked) {
-          this.isSelectedAll = false
-        }
-
         if (arr[i][this.dataChildren]?.length) {
           obj[this.dataChildren] = this.initData(
             arr[i][this.dataChildren],
@@ -500,7 +483,7 @@ export default {
 
       return res
     },
-    // 获取某个节点所有子元素
+    // 获取某个节点后面所有元素
     getChildren(node) {
       if (!node[this.dataChildren]?.length) return []
       const res = node[this.dataChildren].reduce((pre, val) => {
@@ -514,7 +497,7 @@ export default {
       }
       return res
     },
-    // 获取某个节点所有父元素
+    // 获取某个节点所有祖先元素
     getParentNode(target, arr) {
       let res = []
 
@@ -537,8 +520,10 @@ export default {
     },
     // 点击checkbox
     handleNodeClick(data) {
-      const node = this.getTruthNode(data)
+      const node = this.getReflectNode(data, this.treeData)
       node.checked = !node.checked
+      node.partChecked = false
+      partCheckedSet.delete(node[this.dataValue])
       // 如果是单选不考虑其他情况
       if (!this.mutiple) {
         let emitData = []
@@ -586,24 +571,38 @@ export default {
                   ...childrenVal.map((item) => item[this.dataValue].toString())
                 ])
               )
+              // 孩子节点全部选中并且清除半选状态
+              childrenVal.forEach((childNode) => {
+                childNode.partChecked = false
+                partCheckedSet.delete(childNode[this.dataValue])
+              })
             }
             if (parentNodes.length) {
+              let flag = false
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
                 const item = parentNodes.shift()
                 if (!item.disabled) {
-                  const allChecked = item[this.dataChildren]
-                    .filter((node) => node.visible && !node.disabled)
-                    .every((node) => node.checked)
-                  if (allChecked) {
-                    item.checked = true
-                    item.partChecked = false
-                    emitData = Array.from(
-                      new Set([...emitData, item[this.dataValue].toString()])
-                    )
-                  } else {
+                  if (flag) {
+                    // 前一个没选中并且为半选那么之后的全为半选
                     item.partChecked = true
-                    break
+                    partCheckedSet.add(item[this.dataValue])
+                  } else {
+                    const allChecked = item[this.dataChildren]
+                      .filter((node) => node.visible && !node.disabled)
+                      .every((node) => node.checked)
+                    if (allChecked) {
+                      item.checked = true
+                      item.partChecked = false
+                      partCheckedSet.delete(item[this.dataValue])
+                      emitData = Array.from(
+                        new Set([...emitData, item[this.dataValue].toString()])
+                      )
+                    } else {
+                      item.partChecked = true
+                      partCheckedSet.add(item[this.dataValue])
+                      flag = true
+                    }
                   }
                 }
               }
@@ -613,7 +612,6 @@ export default {
             emitData = emitData.filter(
               (id) => id !== node[this.dataValue].toString()
             )
-            node.partChecked = false
             if (childrenVal.length) {
               // 取消选中全部子节点
               childrenVal.forEach((childNode) => {
@@ -624,12 +622,23 @@ export default {
             }
             if (parentNodes.length) {
               parentNodes.forEach((parentNode) => {
+                if (emitData.includes(parentNode[this.dataValue].toString())) {
+                  parentNode.checked = false
+                }
                 emitData = emitData.filter(
                   (id) => id !== parentNode[this.dataValue].toString()
                 )
+                const hasChecked = parentNode[this.dataChildren]
+                  .filter((node) => node.visible && !node.disabled)
+                  .some((node) => node.checked || node.partChecked)
+
+                parentNode.partChecked = hasChecked
+                if (hasChecked) {
+                  partCheckedSet.add(parentNode[this.dataValue])
+                } else {
+                  partCheckedSet.delete(parentNode[this.dataValue])
+                }
               })
-              parentNodes[parentNodes.length - 1].partChecked =
-                emitData.length === 0 ? false : true
             }
           }
           this.$emit(
@@ -642,123 +651,129 @@ export default {
     // 点击名称折叠或展开
     handleHideChildren(node) {
       const status = !node.showChildren
-      this.getTruthNode(node).showChildren = status
-      this.getFilterTreeNode(node).showChildren = status
-    },
-    // 根据id展示内容
-    getselectedInfo(ids) {
-      if (!ids.length) return []
-      const res = []
-      const arr = this.treeData.length ? [...this.treeData] : [...this.listData]
-      const data =
-        typeof ids === 'string'
-          ? ids.split(',')
-          : ids.map((item) => item.toString())
-
-      while (arr.length) {
-        const item = arr.shift()
-        if (data.includes(item[this.dataValue].toString())) {
-          res.push({
-            [this.dataLabel]: item[this.dataLabel],
-            [this.dataValue]: item[this.dataValue].toString()
-          })
-        }
-        if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
-        }
-      }
-
-      return res
+      this.getReflectNode(node, this.treeData).showChildren = status
+      this.getReflectNode(node, this.filterTreeData).showChildren = status
     },
     // 根据 dataValue 找节点
-    changeStatus(list, ids, checkedState) {
+    changeStatus(list, ids, checkedState, needEmit = false) {
       const arr = [...list]
-      const data =
-        typeof ids === 'string'
-          ? ids.split(',')
-          : ids.map((item) => item.toString())
+      let flag = true
+      needEmit && (this.selectedListBaseinfo = [])
 
       while (arr.length) {
         const item = arr.shift()
 
-        if (data.includes(item[this.dataValue].toString())) {
+        if (ids.includes(item[this.dataValue].toString())) {
           this.$set(item, 'checked', checkedState)
+          needEmit && this.selectedListBaseinfo.push(item)
         } else {
           this.$set(item, 'checked', !checkedState)
-        }
-
-        if (!item.checked) {
-          this.isSelectedAll = false
+          if (item.visible && !item.disabled) {
+            flag = false
+          }
+          if (partCheckedSet.has(item[this.dataValue])) {
+            this.$set(item, 'partChecked', true)
+          } else {
+            this.$set(item, 'partChecked', false)
+          }
         }
 
         if (item[this.dataChildren]?.length) {
           arr.push(...item[this.dataChildren])
         }
       }
-
+      this.isSelectedAll = flag
+      needEmit && this.$emit('selectChange', [...this.selectedListBaseinfo])
       return null
     },
     // 移除选项
-    removeSelectedItem(id) {
-      this.changeStatus(this.treeData, [id], false)
-      const emitData = this.selectList.filter((item) => item !== id)
-      this.$emit('removeSelect', id)
+    removeSelectedItem(node) {
+      this.isSelectedAll = false
+      const emitData = this.selectList.filter(
+        (item) => item !== node[this.dataValue].toString()
+      )
+      this.$emit('removeSelect', node)
       this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
     },
     // 全部选中
     handleSelectAll() {
-      if (this.isSelectedAll) return
-      this.isSelectedAll = true
-      if (!this.mutiple) {
-        uni.showToast({
-          title: '单选模式下不能全选',
-          icon: 'none',
-          duration: 1000
-        })
-        return
-      }
-      let emitData = []
-      this.treeData.forEach((item) => {
-        if (item.visible && !item.disabled) {
-          emitData = Array.from(
-            new Set([...emitData, item[this.dataValue].toString()])
-          )
-          if (item[this.dataChildren]?.length) {
-            emitData = Array.from(
-              new Set([
-                ...emitData,
-                ...this.getChildren(item)
-                  .filter((item) => !item.disabled)
-                  .map((item) => item[this.dataValue].toString())
-              ])
-            )
-          }
+      this.isSelectedAll = !this.isSelectedAll
+      if (this.isSelectedAll) {
+        if (!this.mutiple) {
+          uni.showToast({
+            title: '单选模式下不能全选',
+            icon: 'none',
+            duration: 1000
+          })
+          return
         }
-      })
-      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
+        let emitData = []
+        this.treeData.forEach((item) => {
+          if (item.visible || (item.disabled && item.checked)) {
+            emitData = Array.from(
+              new Set([...emitData, item[this.dataValue].toString()])
+            )
+            if (item[this.dataChildren]?.length) {
+              emitData = Array.from(
+                new Set([
+                  ...emitData,
+                  ...this.getChildren(item)
+                    .filter(
+                      (item) =>
+                        !item.disabled || (item.disabled && item.checked)
+                    )
+                    .map((item) => item[this.dataValue].toString())
+                ])
+              )
+            }
+          }
+        })
+        this.$emit(
+          'input',
+          isString(this.value) ? emitData.join(',') : emitData
+        )
+      } else {
+        this.clear()
+      }
     },
     // 清空选项
     clear() {
       if (this.disabled) return
-      this.$emit('input', isString(this.value) ? '' : [])
+      const emitData = []
+      this.selectedListBaseinfo.forEach((node) => {
+        if (node.visible && node.checked && node.disabled) {
+          emitData.push(node[this.dataValue])
+        }
+      })
+      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
     }
   }
 }
 </script>
 
 <style lang="scss" scoped>
+$primary-color: #007aff;
+$col-sm: 4px;
+$col-base: 8px;
+$col-lg: 12px;
+$row-sm: 5px;
+$row-base: 10px;
+$row-lg: 15px;
+$radius-sm: 3px;
+$radius-base: 6px;
+
 .custom-tree-select-content {
   .select-list {
-    padding-left: 10px;
+    padding-left: $row-base;
     min-height: 35px;
     border: 1px solid #e5e5e5;
-    border-radius: 4px;
+    border-radius: $radius-sm;
     display: flex;
     justify-content: space-between;
     align-items: center;
 
     &.active {
-      padding: 4px 0 4px 10px;
+      padding: calc(#{$col-sm} / 2) 0 calc(#{$col-sm} / 2) $row-base;
     }
 
     .left {
@@ -770,19 +785,19 @@ export default {
       }
 
       .select-item {
-        margin: 4px 10px 4px 0;
-        padding: 4px 5px;
+        margin: $col-sm $row-base $col-sm 0;
+        padding: $col-sm $row-sm;
         max-width: auto;
         height: auto;
         background-color: #eaeaea;
-        border-radius: 4px;
+        border-radius: $radius-sm;
         color: #333;
         display: flex;
         align-items: center;
 
         .name {
           flex: 1;
-          padding-right: 10px;
+          padding-right: $row-base;
           font-size: 14px;
         }
 
@@ -798,7 +813,7 @@ export default {
     }
 
     .right {
-      margin-right: 5px;
+      margin-right: $row-sm;
       display: flex;
       justify-content: flex-end;
       align-items: center;
@@ -826,7 +841,7 @@ export default {
     flex-direction: column;
 
     .title {
-      padding: 8px 3rem;
+      padding: $col-base 3rem;
       border-bottom: 1px solid $uni-border-color;
       font-size: 14px;
       display: flex;
@@ -850,20 +865,20 @@ export default {
     }
 
     .search-box {
-      margin: 8px 10px 0;
+      margin: $col-base $row-base 0;
       background-color: #fff;
       display: flex;
       align-items: center;
 
       .search-btn {
-        margin-left: 10px;
+        margin-left: $row-base;
         height: 35px;
         line-height: 35px;
       }
     }
 
     .select-content {
-      margin: 8px 10px;
+      margin: $col-base $row-base;
       flex: 1;
       overflow: hidden;
       position: relative;

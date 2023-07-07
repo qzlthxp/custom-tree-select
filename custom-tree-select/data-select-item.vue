@@ -8,46 +8,52 @@
         node[dataChildren].length &&
         node.showChildren
     }"
-    :style="{
-      marginLeft: `${
-        node[dataChildren] && node[dataChildren].length
-          ? level * 5 + 10
-          : level * 5 + 5
-      }px`
-    }"
+    :style="{ marginLeft: `${level ? 14 : 0}px` }"
   >
     <view v-if="node.visible" class="custom-tree-select-item">
       <view class="item-content">
-        <view class="left" @click.stop="nameClick(node)">
-          <view class="icon-group">
-            <view
-              v-if="node[dataChildren] && node[dataChildren].length"
-              :class="['icon', { active: node.showChildren }]"
-            >
-              <uni-icons type="right" size="14" color="#333"></uni-icons>
-            </view>
-            <view v-else class="icon smallcircle-filled"></view>
+        <view class="left">
+          <view
+            v-if="node[dataChildren] && node[dataChildren].length"
+            :class="['right-icon', { active: node.showChildren }]"
+          >
+            <uni-icons type="right" size="14" color="#333"></uni-icons>
           </view>
-          <view class="name" :style="node.disabled ? 'color: #999' : ''">
+          <view v-else class="smallcircle-filled">
+            <uni-icons
+              class="smallcircle-filled-icon"
+              type="smallcircle-filled"
+              size="10"
+              color="#333"
+            ></uni-icons>
+          </view>
+          <view
+            class="name"
+            :style="node.disabled ? 'color: #999' : ''"
+            @click.stop="nameClick(node)"
+          >
             <text>{{ node[dataLabel] }}</text>
           </view>
         </view>
-        <checkbox
+        <view
           v-if="
-            (choseParent ||
-              (!choseParent && !node[dataChildren]) ||
-              (!choseParent &&
-                node[dataChildren] &&
-                !node[dataChildren].length)) &&
-            !node.partChecked
+            choseParent ||
+            (!choseParent && !node[dataChildren]) ||
+            (!choseParent && node[dataChildren] && !node[dataChildren].length)
           "
-          :disabled="node.disabled"
-          :value="node[dataValue].toString()"
-          :checked="node.checked"
+          :class="['check-box', { disabled: node.disabled }]"
           @click.stop="nodeClick(node)"
-        />
-        <view class="check-section" v-else>
-          <view class="check-content-section"> </view>
+        >
+          <view
+            v-if="!node.checked && node.partChecked"
+            class="part-checked"
+          ></view>
+          <uni-icons
+            v-if="node.checked"
+            type="checkmarkempty"
+            size="18"
+            :color="node.disabled ? '#333' : '#007aff'"
+          ></uni-icons>
         </view>
       </view>
     </view>
@@ -192,9 +198,26 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+$primary-color: #007aff;
+$col-sm: 4px;
+$col-base: 8px;
+$col-lg: 12px;
+$row-sm: 5px;
+$row-base: 10px;
+$row-lg: 15px;
+$radius-sm: 3px;
+$radius-base: 6px;
+$border-color: #c8c7cc;
+
 .custom-tree-select-content {
   &.border {
-    border-left: 1px dashed #c8c7cc;
+    border-left: 1px solid $border-color;
   }
 
   /deep/ .uni-checkbox-input {
@@ -202,59 +225,73 @@ export default {
   }
 
   .item-content {
-    margin: 0 0 16px;
+    margin: 0 0 $col-lg;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
 
-    &:first-child {
-      margin-top: 0;
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 3px;
+      background-color: #fff;
+      transform: translateX(-2px);
+      z-index: 1;
     }
 
     .left {
-      padding-right: 10px;
       flex: 1;
       display: flex;
       align-items: center;
-      position: relative;
 
-      .icon-group {
-        position: absolute;
-        transform: translateX(-50%);
-        background-color: #fff;
+      .right-icon {
+        transition: 0.15s ease;
 
-        .icon {
-          transition: 0.2s ease;
-
-          &.active {
-            transform: rotate(90deg);
-          }
-
-          &.smallcircle-filled {
-            width: 5px;
-            height: 5px;
-            border-radius: 5px;
-            background-color: #333;
-          }
+        &.active {
+          transform: rotate(90deg);
         }
       }
-    }
 
-    .name {
-      padding-left: 8px;
-      flex: 1;
-      height: auto;
-      word-break: break-all;
+      .smallcircle-filled {
+        width: 14px;
+        height: 13.6px;
+        display: flex;
+        align-items: center;
+
+        .smallcircle-filled-icon {
+          transform-origin: center;
+          transform: scale(0.55);
+        }
+      }
+
+      .name {
+        flex: 1;
+      }
     }
   }
 }
-.check-section {
-  padding: 4px;
-  border: 1px solid #007aff;
-}
-.check-content-section {
-  width: 14px;
-  height: 14px;
-  background: #007aff;
+
+.check-box {
+  width: 23.6px;
+  height: 23.6px;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  &.disabled {
+    background-color: rgb(225, 225, 225);
+  }
+
+  .part-checked {
+    width: 60%;
+    height: 2px;
+    background-color: $primary-color;
+  }
 }
 </style>
