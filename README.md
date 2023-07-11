@@ -1,5 +1,7 @@
 # custom-tree-select 使用指南
 
+找工作中…，大佬们有内推加群联系我😁<img src="https://dl4.weshineapp.com/gif/20220218/e5e406ef3c1837a0a04f8e7b59bc335d.gif?f=micro_" alt="img" style="zoom:25%;" />
+
 **提示：** 使用该插件前确保你已经导入 `uni-popup` `uni-icons` `uni-easyinput` 插件。
 
 当前插件主要作为表单中选择器来使用，如果只是作为弹窗会出现数据状态无法重置，此时推荐使用 [`custom-tree-popup`](https://ext.dcloud.net.cn/plugin?name=custom-tree-popup) 组件。
@@ -62,7 +64,7 @@ Vue.prototype.$bus = new Vue()
 | maskClick    | 点击遮罩层触发           |                                       |
 | input        | 选中数据或取消选中时触发 | 以数组形式返回已选择数据              |
 | selectChange | 选中数据或取消选中时触发 | 以数组形式返回已选择数据完整信息      |
-| removeSelect | 选择框移除选项时触发     | 返回移除数据项信息                    |
+| removeSelect | 选择框移除选项时触发     | 返回对应数据的完整信息                |
 
 ## 基础使用示例
 

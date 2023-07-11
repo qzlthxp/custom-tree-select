@@ -114,6 +114,7 @@
               :dataChildren="dataChildren"
               :choseParent="choseParent"
               :border="border"
+              :linkage="linkage"
             ></data-select-item>
             <view class="sentry" />
           </scroll-view>
@@ -284,9 +285,9 @@ export default {
             : typeof newVal === 'string'
             ? newVal.split(',')
             : []
-          this.changeStatus(this.treeData, ids, true, true)
+          this.changeStatus(this.treeData, ids, true)
           this.filterTreeData.length &&
-            this.changeStatus(this.filterTreeData, ids, true)
+            this.changeStatus(this.filterTreeData, ids)
         }
       }
     }
@@ -453,6 +454,7 @@ export default {
           arr[i].partChecked === undefined ? false : arr[i].partChecked
         )
         obj.partChecked && obj.partCheckedSet.add(obj[this.dataValue])
+        !obj.partChecked && (this.isSelectedAll = false)
 
         const parentVisibleState =
           parentVisible === undefined ? true : parentVisible
@@ -519,9 +521,9 @@ export default {
       return res
     },
     // 点击checkbox
-    handleNodeClick(data) {
+    handleNodeClick(data, status) {
       const node = this.getReflectNode(data, this.treeData)
-      node.checked = !node.checked
+      node.checked = typeof status === 'boolean' ? status : !node.checked
       node.partChecked = false
       partCheckedSet.delete(node[this.dataValue])
       // 如果是单选不考虑其他情况
@@ -655,7 +657,7 @@ export default {
       this.getReflectNode(node, this.filterTreeData).showChildren = status
     },
     // 根据 dataValue 找节点
-    changeStatus(list, ids, checkedState, needEmit = false) {
+    changeStatus(list, ids, needEmit = false) {
       const arr = [...list]
       let flag = true
       needEmit && (this.selectedListBaseinfo = [])
@@ -664,10 +666,13 @@ export default {
         const item = arr.shift()
 
         if (ids.includes(item[this.dataValue].toString())) {
-          this.$set(item, 'checked', checkedState)
+          this.$set(item, 'checked', true)
           needEmit && this.selectedListBaseinfo.push(item)
+          // 数据被选中清除半选状态
+          item.partChecked = false
+          partCheckedSet.delete(item[this.dataValue])
         } else {
-          this.$set(item, 'checked', !checkedState)
+          this.$set(item, 'checked', false)
           if (item.visible && !item.disabled) {
             flag = false
           }
@@ -684,16 +689,23 @@ export default {
       }
       this.isSelectedAll = flag
       needEmit && this.$emit('selectChange', [...this.selectedListBaseinfo])
-      return null
     },
     // 移除选项
     removeSelectedItem(node) {
       this.isSelectedAll = false
-      const emitData = this.selectList.filter(
-        (item) => item !== node[this.dataValue].toString()
-      )
-      this.$emit('removeSelect', node)
-      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
+      if (this.linkage) {
+        this.handleNodeClick(node, false)
+        this.$emit('removeSelect', node)
+      } else {
+        const emitData = this.selectList.filter(
+          (item) => item !== node[this.dataValue].toString()
+        )
+        this.$emit('removeSelect', node)
+        this.$emit(
+          'input',
+          isString(this.value) ? emitData.join(',') : emitData
+        )
+      }
     },
     // 全部选中
     handleSelectAll() {
@@ -740,6 +752,7 @@ export default {
     clear() {
       if (this.disabled) return
       const emitData = []
+      partCheckedSet.clear()
       this.selectedListBaseinfo.forEach((node) => {
         if (node.visible && node.checked && node.disabled) {
           emitData.push(node[this.dataValue])

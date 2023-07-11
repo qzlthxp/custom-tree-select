@@ -45,7 +45,7 @@
           @click.stop="nodeClick(node)"
         >
           <view
-            v-if="!node.checked && node.partChecked"
+            v-if="!node.checked && node.partChecked && linkage"
             class="part-checked"
           ></view>
           <uni-icons
@@ -71,6 +71,7 @@
         :dataChildren="dataChildren"
         :choseParent="choseParent"
         :border="border"
+        :linkage="linkage"
         :level="level + 1"
       ></data-select-item>
     </view>
@@ -107,6 +108,10 @@ export default {
       default: 'children'
     },
     border: {
+      type: Boolean,
+      default: false
+    },
+    linkage: {
       type: Boolean,
       default: false
     },
