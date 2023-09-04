@@ -5,24 +5,34 @@
       @click.stop="open"
     >
       <view class="left">
-        <view v-if="selectList.length" class="select-items">
-          <view
-            class="select-item"
-            v-for="item in selectedListBaseinfo"
-            :key="item[dataValue]"
-          >
-            <view class="name">
-              <text>{{ item[dataLabel] }}</text>
-            </view>
+        <template v-if="!mutiple && selectList.length">
+          <view class="single-option">
+            <text>{{
+              selectedListBaseinfo[0][emitPath ? "labelPath" : dataLabel]
+            }}</text>
+          </view>
+        </template>
+        <template v-else-if="mutiple && selectList.length">
+          <view class="select-items">
             <view
-              v-if="!disabled && !item.disabled"
-              class="close"
-              @click.stop="removeSelectedItem(item)"
+              class="select-item"
+              v-for="item in selectedListBaseinfo"
+              :key="item[dataValue]"
             >
-              <uni-icons type="closeempty" size="16" color="#999"></uni-icons>
+              <view class="name">
+                <text>{{ item[emitPath ? "labelPath" : dataLabel] }}</text>
+              </view>
+              <view
+                v-if="!disabled && !item.disabled"
+                class="close"
+                @click.stop="removeSelectedItem(item)"
+              >
+                <uni-icons type="closeempty" size="16" color="#999"></uni-icons>
+              </view>
             </view>
           </view>
-        </view>
+        </template>
+
         <view v-else style="color: #6a6a6a" class="no-data">
           <text>{{ placeholder }}</text>
         </view>
@@ -55,14 +65,17 @@
       @change="change"
       @maskClick="maskClick"
     >
-      <view class="popup-content" :style="{ height: contentHeight }">
+      <view
+        class="popup-content"
+        :style="{ height: contentHeight || defaultContentHeight }"
+      >
         <view class="title">
           <view
             v-if="mutiple && canSelectAll"
             class="left"
             @click.stop="handleSelectAll"
           >
-            <text>{{ isSelectedAll ? '取消全选' : '全选' }}</text>
+            <text>{{ isSelectedAll ? "取消全选" : "全选" }}</text>
           </view>
           <view class="center">
             <text>{{ placeholder }}</text>
@@ -128,119 +141,134 @@
 </template>
 
 <script>
-const partCheckedSet = new Set()
-import { isString, paging } from './utils'
-import dataSelectItem from './data-select-item.vue'
+const partCheckedSet = new Set();
+import { isString, paging } from "./utils";
+import dataSelectItem from "./data-select-item.vue";
 export default {
-  name: 'custom-tree-select',
+  name: "custom-tree-select",
   components: {
-    dataSelectItem
+    dataSelectItem,
   },
   model: {
-    prop: 'value',
-    event: 'input'
+    prop: "value",
+    event: "input",
   },
   props: {
     canSelectAll: {
       type: Boolean,
-      default: false
+      default: false,
     },
     safeArea: {
       type: Boolean,
-      default: true
+      default: true,
     },
     search: {
       type: Boolean,
-      default: false
+      default: false,
     },
     clearResetSearch: {
       type: Boolean,
-      default: false
+      default: false,
     },
     animation: {
       type: Boolean,
-      default: true
+      default: true,
     },
-    'is-mask-click': {
+    "is-mask-click": {
       type: Boolean,
-      default: true
+      default: true,
     },
-    'mask-background-color': {
+    "mask-background-color": {
       type: String,
-      default: 'rgba(0,0,0,0.4)'
+      default: "rgba(0,0,0,0.4)",
     },
-    'background-color': {
+    "background-color": {
       type: String,
-      default: 'none'
+      default: "none",
     },
-    'safe-area': {
+    "safe-area": {
       type: Boolean,
-      default: true
+      default: true,
     },
     choseParent: {
       type: Boolean,
-      default: true
+      default: true,
     },
     placeholder: {
       type: String,
-      default: '请选择'
+      default: "请选择",
     },
     confirmText: {
       type: String,
-      default: '完成'
+      default: "完成",
     },
     confirmTextColor: {
       type: String,
-      default: '#007aff'
+      default: "#007aff",
+    },
+    contentHeight: {
+      type: String,
+    },
+    disabledList: {
+      type: Array,
+      default: () => [],
     },
     listData: {
       type: Array,
-      default: () => []
+      default: () => [],
     },
     dataLabel: {
       type: String,
-      default: 'name'
+      default: "name",
     },
     dataValue: {
       type: String,
-      default: 'id'
+      default: "id",
     },
     dataChildren: {
       type: String,
-      default: 'children'
+      default: "children",
     },
     linkage: {
       type: Boolean,
-      default: false
+      default: false,
     },
     clearable: {
       type: Boolean,
-      default: false
+      default: false,
     },
     mutiple: {
       type: Boolean,
-      default: false
+      default: false,
     },
     disabled: {
       type: Boolean,
-      default: false
+      default: false,
     },
     showChildren: {
       type: Boolean,
-      default: true
+      default: true,
     },
     border: {
       type: Boolean,
-      default: false
+      default: false,
     },
     value: {
       type: [Array, String],
-      default: () => []
-    }
+      default: () => [],
+    },
+    emitPath: {
+      type: Boolean,
+      default: false,
+    },
+    emitPathSepar: {
+      type: String,
+      default: "-",
+    },
   },
   data() {
     return {
-      contentHeight: '500px',
+      defaultContentHeight: "500px",
       treeData: [],
       filterTreeData: [],
       clearTimerList: [],
@@ -249,18 +277,18 @@ export default {
       clickOpenTimer: null,
       isSelectedAll: false,
       scrollTop: 0,
-      searchStr: ''
-    }
+      searchStr: "",
+    };
   },
   computed: {
     selectList() {
-      const newVal = this.value === null ? '' : this.value
+      const newVal = this.value === null ? "" : this.value;
       return isString(newVal)
         ? newVal.length
-          ? newVal.split(',')
+          ? newVal.split(",")
           : []
-        : newVal.map((item) => item.toString())
-    }
+        : newVal.map((item) => item.toString());
+    },
   },
   watch: {
     listData: {
@@ -268,13 +296,25 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
-          this.treeData = this.initData(newVal)
+          partCheckedSet.clear();
+          this.treeData = this.initData(newVal);
+
+          if (this.value !== null) {
+            const ids = Array.isArray(this.value)
+              ? this.value
+              : typeof this.value === "string"
+              ? this.value.split(",")
+              : [];
+            this.changeStatus(this.treeData, ids, true);
+            this.filterTreeData.length &&
+              this.changeStatus(this.filterTreeData, ids);
+          }
           if (this.showPopup) {
-            this.resetClearTimerList()
-            this.renderTree(this.treeData)
+            this.resetClearTimerList();
+            this.renderTree(this.treeData);
           }
         }
-      }
+      },
     },
     value: {
       immediate: true,
@@ -282,61 +322,61 @@ export default {
         if (newVal !== null) {
           const ids = Array.isArray(newVal)
             ? newVal
-            : typeof newVal === 'string'
-            ? newVal.split(',')
-            : []
-          this.changeStatus(this.treeData, ids, true)
+            : typeof newVal === "string"
+            ? newVal.split(",")
+            : [];
+          this.changeStatus(this.treeData, ids, true);
           this.filterTreeData.length &&
-            this.changeStatus(this.filterTreeData, ids)
+            this.changeStatus(this.filterTreeData, ids);
         }
-      }
-    }
+      },
+    },
   },
   mounted() {
-    this.getContentHeight(uni.getSystemInfoSync())
+    this.getContentHeight(uni.getSystemInfoSync());
   },
   methods: {
     // 搜索完成返回顶部
     goTop() {
-      this.scrollTop = 10
+      this.scrollTop = 10;
       this.$nextTick(() => {
-        this.scrollTop = 0
-      })
+        this.scrollTop = 0;
+      });
     },
     // 获取对应数据
     getReflectNode(node, arr) {
-      const array = [...arr]
+      const array = [...arr];
       while (array.length) {
-        const item = array.shift()
+        const item = array.shift();
         if (item[this.dataValue] === node[this.dataValue]) {
-          return item
+          return item;
         }
         if (item[this.dataChildren]?.length) {
-          array.push(...item[this.dataChildren])
+          array.push(...item[this.dataChildren]);
         }
       }
-      return {}
+      return {};
     },
     getContentHeight({ screenHeight }) {
-      this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
+      this.defaultContentHeight = `${Math.floor(screenHeight * 0.7)}px`;
     },
     // 处理搜索
     handleSearch(isClear = false) {
-      this.resetClearTimerList()
+      this.resetClearTimerList();
       if (isClear) {
         // 点击清空按钮并且设置清空按钮会重置搜索
         if (this.clearResetSearch) {
-          this.renderTree(this.treeData)
+          this.renderTree(this.treeData);
         }
       } else {
-        this.renderTree(this.searchValue(this.searchStr, this.treeData))
+        this.renderTree(this.searchValue(this.searchStr, this.treeData));
       }
-      this.goTop()
-      uni.hideKeyboard()
+      this.goTop();
+      uni.hideKeyboard();
     },
     // 具体搜索方法
     searchValue(str, arr) {
-      const res = []
+      const res = [];
       arr.forEach((item) => {
         if (item.visible) {
           if (
@@ -345,265 +385,293 @@ export default {
               .toLowerCase()
               .indexOf(str.toLowerCase()) > -1
           ) {
-            res.push(item)
+            res.push(item);
           } else {
             if (item[this.dataChildren]?.length) {
-              const data = this.searchValue(str, item[this.dataChildren])
+              const data = this.searchValue(str, item[this.dataChildren]);
               if (data?.length) {
                 if (
                   str &&
                   !item.showChildren &&
                   item[this.dataChildren]?.length
                 ) {
-                  item.showChildren = true
+                  item.showChildren = true;
                 }
                 res.push({
                   ...item,
-                  [this.dataChildren]: data
-                })
+                  [this.dataChildren]: data,
+                });
               }
             }
           }
         }
-      })
-      return res
+      });
+      return res;
     },
     // 懒加载
     renderTree(arr) {
-      const pagingArr = paging(arr)
+      const pagingArr = paging(arr);
       this.filterTreeData.splice(
         0,
         this.filterTreeData.length,
         ...(pagingArr?.[0] || [])
-      )
-      this.lazyRenderList(pagingArr, 1)
+      );
+      this.lazyRenderList(pagingArr, 1);
     },
     // 懒加载具体逻辑
     lazyRenderList(arr, startIndex) {
       for (let i = startIndex; i < arr.length; i++) {
-        let timer = null
+        let timer = null;
         timer = setTimeout(() => {
-          this.filterTreeData.push(...arr[i])
-        }, i * 500)
-        this.clearTimerList.push(() => clearTimeout(timer))
+          this.filterTreeData.push(...arr[i]);
+        }, i * 500);
+        this.clearTimerList.push(() => clearTimeout(timer));
       }
     },
     // 中断懒加载
     resetClearTimerList() {
-      const list = [...this.clearTimerList]
-      this.clearTimerList = []
-      list.forEach((fn) => fn())
+      const list = [...this.clearTimerList];
+      this.clearTimerList = [];
+      list.forEach((fn) => fn());
     },
     // 打开弹窗
     open() {
       // disaled模式下禁止打开弹窗
-      if (this.disabled) return
-      this.showPopup = true
+      if (this.disabled) return;
+      this.showPopup = true;
       this.$nextTick(() => {
-        this.$refs.popup.open()
-        this.renderTree(this.treeData)
-      })
+        this.$refs.popup.open();
+        this.renderTree(this.treeData);
+      });
     },
     // 关闭弹窗
     close() {
-      this.$refs.popup.close()
+      this.$refs.popup.close();
     },
     // 弹窗状态变化 包括点击回显框和遮罩
     change(data) {
       if (data.show) {
-        uni.$on('custom-tree-select-node-click', this.handleNodeClick)
-        uni.$on('custom-tree-select-name-click', this.handleHideChildren)
+        uni.$on("custom-tree-select-node-click", this.handleNodeClick);
+        uni.$on("custom-tree-select-name-click", this.handleHideChildren);
       } else {
-        uni.$off('custom-tree-select-node-click', this.handleNodeClick)
-        uni.$off('custom-tree-select-name-click', this.handleHideChildren)
-        this.resetClearTimerList()
-        this.searchStr = ''
+        uni.$off("custom-tree-select-node-click", this.handleNodeClick);
+        uni.$off("custom-tree-select-name-click", this.handleHideChildren);
+        this.resetClearTimerList();
+        this.searchStr = "";
         if (this.animation) {
           setTimeout(() => {
-            this.showPopup = false
-          }, 200)
+            this.showPopup = false;
+          }, 200);
         } else {
-          this.showPopup = false
+          this.showPopup = false;
         }
       }
-      this.$emit('change', data)
+      this.$emit("change", data);
     },
     // 点击遮罩
     maskClick() {
-      this.$emit('maskClick')
+      this.$emit("maskClick");
     },
     // 初始化数据
-    initData(arr, parentVisible) {
-      if (!Array.isArray(arr)) return []
-      const res = []
+    initData(arr, parent, parentVisible) {
+      if (!Array.isArray(arr)) return [];
+      const res = [];
 
       for (let i = 0; i < arr.length; i++) {
         const obj = {
+          ...arr[i],
           [this.dataLabel]: arr[i][this.dataLabel],
-          [this.dataValue]: arr[i][this.dataValue]
-        }
-
+          [this.dataValue]: arr[i][this.dataValue],
+          labelPath: parent
+            ? `${parent.labelPath}${this.emitPathSepar}${
+                arr[i][this.dataLabel]
+              }`
+            : arr[i][this.dataLabel],
+          valuePath: parent
+            ? `${parent.valuePath}${this.emitPathSepar}${
+                arr[i][this.dataValue]
+              }`
+            : arr[i][this.dataValue],
+        };
         obj.checked = this.selectList.includes(
           arr[i][this.dataValue].toString()
-        )
+        );
 
-        obj.disabled = Boolean(arr[i].disabled)
+        obj.disabled = false;
+        if (
+          Boolean(arr[i].disabled) ||
+          this.disabledList.includes(obj[this.dataValue].toString())
+        ) {
+          obj.disabled = true;
+        }
 
         //半选
         obj.partChecked = Boolean(
           arr[i].partChecked === undefined ? false : arr[i].partChecked
-        )
-        obj.partChecked && obj.partCheckedSet.add(obj[this.dataValue])
-        !obj.partChecked && (this.isSelectedAll = false)
+        );
+        obj.partChecked && obj.partCheckedSet.add(obj[this.dataValue]);
+        !obj.partChecked && (this.isSelectedAll = false);
 
         const parentVisibleState =
-          parentVisible === undefined ? true : parentVisible
+          parentVisible === undefined ? true : parentVisible;
         const curVisibleState =
-          arr[i].visible === undefined ? true : Boolean(arr[i].visible)
+          arr[i].visible === undefined ? true : Boolean(arr[i].visible);
         if (parentVisibleState === curVisibleState) {
-          obj.visible = parentVisibleState
+          obj.visible = parentVisibleState;
         } else if (!parentVisibleState || !curVisibleState) {
-          obj.visible = false
+          obj.visible = false;
         } else {
-          obj.visible = true
+          obj.visible = true;
         }
 
         obj.showChildren =
-          'showChildren' in arr[i] && arr[i].showChildren != undefined
+          "showChildren" in arr[i] && arr[i].showChildren != undefined
             ? arr[i].showChildren
-            : this.showChildren
+            : this.showChildren;
 
         if (arr[i][this.dataChildren]?.length) {
-          obj[this.dataChildren] = this.initData(
+          const childrenVal = this.initData(
             arr[i][this.dataChildren],
+            obj,
             obj.visible
-          )
+          );
+          obj[this.dataChildren] = childrenVal;
+          if (
+            !obj.checked &&
+            childrenVal.some((item) => item.checked || item.partChecked)
+          ) {
+            obj.partChecked = true;
+            partCheckedSet.add(obj[this.dataValue]);
+          }
         }
 
-        res.push(obj)
+        res.push(obj);
       }
 
-      return res
+      return res;
     },
     // 获取某个节点后面所有元素
     getChildren(node) {
-      if (!node[this.dataChildren]?.length) return []
+      if (!node[this.dataChildren]?.length) return [];
       const res = node[this.dataChildren].reduce((pre, val) => {
         if (val.visible) {
-          return [...pre, val]
+          return [...pre, val];
         }
-        return pre
-      }, [])
+        return pre;
+      }, []);
       for (let i = 0; i < node[this.dataChildren].length; i++) {
-        res.push(...this.getChildren(node[this.dataChildren][i]))
+        res.push(...this.getChildren(node[this.dataChildren][i]));
       }
-      return res
+      return res;
     },
     // 获取某个节点所有祖先元素
     getParentNode(target, arr) {
-      let res = []
+      let res = [];
 
       for (let i = 0; i < arr.length; i++) {
         if (arr[i][this.dataValue] === target[this.dataValue]) {
-          return true
+          return true;
         }
 
         if (arr[i][this.dataChildren]?.length) {
-          const childRes = this.getParentNode(target, arr[i][this.dataChildren])
-          if (typeof childRes === 'boolean' && childRes) {
-            res = [arr[i]]
+          const childRes = this.getParentNode(
+            target,
+            arr[i][this.dataChildren]
+          );
+          if (typeof childRes === "boolean" && childRes) {
+            res = [arr[i]];
           } else if (Array.isArray(childRes) && childRes.length) {
-            res = [...childRes, arr[i]]
+            res = [...childRes, arr[i]];
           }
         }
       }
 
-      return res
+      return res;
     },
     // 点击checkbox
     handleNodeClick(data, status) {
-      const node = this.getReflectNode(data, this.treeData)
-      node.checked = typeof status === 'boolean' ? status : !node.checked
-      node.partChecked = false
-      partCheckedSet.delete(node[this.dataValue])
+      const node = this.getReflectNode(data, this.treeData);
+      node.checked = typeof status === "boolean" ? status : !node.checked;
+      node.partChecked = false;
+      partCheckedSet.delete(node[this.dataValue]);
       // 如果是单选不考虑其他情况
       if (!this.mutiple) {
-        let emitData = []
+        let emitData = [];
         if (node.checked) {
-          emitData = [node[this.dataValue].toString()]
+          emitData = [node[this.dataValue].toString()];
         }
         this.$emit(
-          'input',
-          isString(this.value) ? emitData.join(',') : emitData
-        )
+          "input",
+          isString(this.value) ? emitData.join(",") : emitData
+        );
       } else {
         // 多选情况
         if (!this.linkage) {
           // 不需要联动
-          let emitData = null
+          let emitData = null;
           if (node.checked) {
             emitData = Array.from(
               new Set([...this.selectList, node[this.dataValue].toString()])
-            )
+            );
           } else {
             emitData = this.selectList.filter(
               (id) => id !== node[this.dataValue].toString()
-            )
+            );
           }
           this.$emit(
-            'input',
-            isString(this.value) ? emitData.join(',') : emitData
-          )
+            "input",
+            isString(this.value) ? emitData.join(",") : emitData
+          );
         } else {
           // 需要联动
-          let emitData = [...this.selectList]
-          const parentNodes = this.getParentNode(node, this.treeData)
+          let emitData = [...this.selectList];
+          const parentNodes = this.getParentNode(node, this.treeData);
           const childrenVal = this.getChildren(node).filter(
             (item) => !item.disabled
-          )
+          );
           if (node.checked) {
             // 选中
             emitData = Array.from(
               new Set([...emitData, node[this.dataValue].toString()])
-            )
+            );
             if (childrenVal.length) {
               emitData = Array.from(
                 new Set([
                   ...emitData,
-                  ...childrenVal.map((item) => item[this.dataValue].toString())
+                  ...childrenVal.map((item) => item[this.dataValue].toString()),
                 ])
-              )
+              );
               // 孩子节点全部选中并且清除半选状态
               childrenVal.forEach((childNode) => {
-                childNode.partChecked = false
-                partCheckedSet.delete(childNode[this.dataValue])
-              })
+                childNode.partChecked = false;
+                partCheckedSet.delete(childNode[this.dataValue]);
+              });
             }
             if (parentNodes.length) {
-              let flag = false
+              let flag = false;
               // 有父元素 如果父元素下所有子元素全部选中，选中父元素
               while (parentNodes.length) {
-                const item = parentNodes.shift()
+                const item = parentNodes.shift();
                 if (!item.disabled) {
                   if (flag) {
                     // 前一个没选中并且为半选那么之后的全为半选
-                    item.partChecked = true
-                    partCheckedSet.add(item[this.dataValue])
+                    item.partChecked = true;
+                    partCheckedSet.add(item[this.dataValue]);
                   } else {
                     const allChecked = item[this.dataChildren]
                       .filter((node) => node.visible && !node.disabled)
-                      .every((node) => node.checked)
+                      .every((node) => node.checked);
                     if (allChecked) {
-                      item.checked = true
-                      item.partChecked = false
-                      partCheckedSet.delete(item[this.dataValue])
+                      item.checked = true;
+                      item.partChecked = false;
+                      partCheckedSet.delete(item[this.dataValue]);
                       emitData = Array.from(
                         new Set([...emitData, item[this.dataValue].toString()])
-                      )
+                      );
                     } else {
-                      item.partChecked = true
-                      partCheckedSet.add(item[this.dataValue])
-                      flag = true
+                      item.partChecked = true;
+                      partCheckedSet.add(item[this.dataValue]);
+                      flag = true;
                     }
                   }
                 }
@@ -613,118 +681,118 @@ export default {
             // 取消选中
             emitData = emitData.filter(
               (id) => id !== node[this.dataValue].toString()
-            )
+            );
             if (childrenVal.length) {
               // 取消选中全部子节点
               childrenVal.forEach((childNode) => {
                 emitData = emitData.filter(
                   (id) => id !== childNode[this.dataValue].toString()
-                )
-              })
+                );
+              });
             }
             if (parentNodes.length) {
               parentNodes.forEach((parentNode) => {
                 if (emitData.includes(parentNode[this.dataValue].toString())) {
-                  parentNode.checked = false
+                  parentNode.checked = false;
                 }
                 emitData = emitData.filter(
                   (id) => id !== parentNode[this.dataValue].toString()
-                )
+                );
                 const hasChecked = parentNode[this.dataChildren]
                   .filter((node) => node.visible && !node.disabled)
-                  .some((node) => node.checked || node.partChecked)
+                  .some((node) => node.checked || node.partChecked);
 
-                parentNode.partChecked = hasChecked
+                parentNode.partChecked = hasChecked;
                 if (hasChecked) {
-                  partCheckedSet.add(parentNode[this.dataValue])
+                  partCheckedSet.add(parentNode[this.dataValue]);
                 } else {
-                  partCheckedSet.delete(parentNode[this.dataValue])
+                  partCheckedSet.delete(parentNode[this.dataValue]);
                 }
-              })
+              });
             }
           }
           this.$emit(
-            'input',
-            isString(this.value) ? emitData.join(',') : emitData
-          )
+            "input",
+            isString(this.value) ? emitData.join(",") : emitData
+          );
         }
       }
     },
     // 点击名称折叠或展开
     handleHideChildren(node) {
-      const status = !node.showChildren
-      this.getReflectNode(node, this.treeData).showChildren = status
-      this.getReflectNode(node, this.filterTreeData).showChildren = status
+      const status = !node.showChildren;
+      this.getReflectNode(node, this.treeData).showChildren = status;
+      this.getReflectNode(node, this.filterTreeData).showChildren = status;
     },
     // 根据 dataValue 找节点
     changeStatus(list, ids, needEmit = false) {
-      const arr = [...list]
-      let flag = true
-      needEmit && (this.selectedListBaseinfo = [])
+      const arr = [...list];
+      let flag = true;
+      needEmit && (this.selectedListBaseinfo = []);
 
       while (arr.length) {
-        const item = arr.shift()
+        const item = arr.shift();
 
         if (ids.includes(item[this.dataValue].toString())) {
-          this.$set(item, 'checked', true)
-          needEmit && this.selectedListBaseinfo.push(item)
+          this.$set(item, "checked", true);
+          needEmit && this.selectedListBaseinfo.push(item);
           // 数据被选中清除半选状态
-          item.partChecked = false
-          partCheckedSet.delete(item[this.dataValue])
+          item.partChecked = false;
+          partCheckedSet.delete(item[this.dataValue]);
         } else {
-          this.$set(item, 'checked', false)
+          this.$set(item, "checked", false);
           if (item.visible && !item.disabled) {
-            flag = false
+            flag = false;
           }
           if (partCheckedSet.has(item[this.dataValue])) {
-            this.$set(item, 'partChecked', true)
+            this.$set(item, "partChecked", true);
           } else {
-            this.$set(item, 'partChecked', false)
+            this.$set(item, "partChecked", false);
           }
         }
 
         if (item[this.dataChildren]?.length) {
-          arr.push(...item[this.dataChildren])
+          arr.push(...item[this.dataChildren]);
         }
       }
-      this.isSelectedAll = flag
-      needEmit && this.$emit('selectChange', [...this.selectedListBaseinfo])
+      this.isSelectedAll = flag;
+      needEmit && this.$emit("selectChange", [...this.selectedListBaseinfo]);
     },
     // 移除选项
     removeSelectedItem(node) {
-      this.isSelectedAll = false
+      this.isSelectedAll = false;
       if (this.linkage) {
-        this.handleNodeClick(node, false)
-        this.$emit('removeSelect', node)
+        this.handleNodeClick(node, false);
+        this.$emit("removeSelect", node);
       } else {
         const emitData = this.selectList.filter(
           (item) => item !== node[this.dataValue].toString()
-        )
-        this.$emit('removeSelect', node)
+        );
+        this.$emit("removeSelect", node);
         this.$emit(
-          'input',
-          isString(this.value) ? emitData.join(',') : emitData
-        )
+          "input",
+          isString(this.value) ? emitData.join(",") : emitData
+        );
       }
     },
     // 全部选中
     handleSelectAll() {
-      this.isSelectedAll = !this.isSelectedAll
+      this.isSelectedAll = !this.isSelectedAll;
       if (this.isSelectedAll) {
         if (!this.mutiple) {
           uni.showToast({
-            title: '单选模式下不能全选',
-            icon: 'none',
-            duration: 1000
-          })
-          return
+            title: "单选模式下不能全选",
+            icon: "none",
+            duration: 1000,
+          });
+          return;
         }
-        let emitData = []
+        let emitData = [];
         this.treeData.forEach((item) => {
           if (item.visible || (item.disabled && item.checked)) {
             emitData = Array.from(
               new Set([...emitData, item[this.dataValue].toString()])
-            )
+            );
             if (item[this.dataChildren]?.length) {
               emitData = Array.from(
                 new Set([
@@ -734,34 +802,34 @@ export default {
                       (item) =>
                         !item.disabled || (item.disabled && item.checked)
                     )
-                    .map((item) => item[this.dataValue].toString())
+                    .map((item) => item[this.dataValue].toString()),
                 ])
-              )
+              );
             }
           }
-        })
+        });
         this.$emit(
-          'input',
-          isString(this.value) ? emitData.join(',') : emitData
-        )
+          "input",
+          isString(this.value) ? emitData.join(",") : emitData
+        );
       } else {
-        this.clear()
+        this.clear();
       }
     },
     // 清空选项
     clear() {
-      if (this.disabled) return
-      const emitData = []
-      partCheckedSet.clear()
+      if (this.disabled) return;
+      const emitData = [];
+      partCheckedSet.clear();
       this.selectedListBaseinfo.forEach((node) => {
         if (node.visible && node.checked && node.disabled) {
-          emitData.push(node[this.dataValue])
+          emitData.push(node[this.dataValue]);
         }
-      })
-      this.$emit('input', isString(this.value) ? emitData.join(',') : emitData)
-    }
-  }
-}
+      });
+      this.$emit("input", isString(this.value) ? emitData.join(",") : emitData);
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -791,6 +859,13 @@ $radius-base: 6px;
 
     .left {
       flex: 1;
+
+      .single-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-right: 20rpx;
+      }
 
       .select-items {
         display: flex;
