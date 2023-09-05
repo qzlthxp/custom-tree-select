@@ -213,6 +213,13 @@ export default {
       type: Array,
       default: () => [],
     },
+    contentHeight: {
+      type: String
+    },
+    disabledList: {
+      type: Array,
+      default: () => []
+    },
     listData: {
       type: Array,
       default: () => [],
