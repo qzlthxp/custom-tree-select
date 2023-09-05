@@ -55,7 +55,10 @@
       @change="change"
       @maskClick="maskClick"
     >
-      <view class="popup-content" :style="{ height: contentHeight }">
+      <view
+        class="popup-content"
+        :style="{ height: contentHeight || defaultContentHeight }"
+      >
         <view class="title">
           <view
             v-if="mutiple && canSelectAll"
@@ -193,6 +196,13 @@ export default {
       type: String,
       default: '#007aff'
     },
+    contentHeight: {
+      type: String
+    },
+    disabledList: {
+      type: Array,
+      default: () => []
+    },
     listData: {
       type: Array,
       default: () => []
@@ -240,7 +250,7 @@ export default {
   },
   data() {
     return {
-      contentHeight: '500px',
+      defaultContentHeight: '500px',
       treeData: [],
       filterTreeData: [],
       clearTimerList: [],
@@ -268,7 +278,19 @@ export default {
       immediate: true,
       handler(newVal) {
         if (newVal) {
+          partCheckedSet.clear()
           this.treeData = this.initData(newVal)
+
+          if (this.value !== null) {
+            const ids = Array.isArray(this.value)
+              ? this.value
+              : typeof this.value === 'string'
+              ? this.value.split(',')
+              : []
+            this.changeStatus(this.treeData, ids, true)
+            this.filterTreeData.length &&
+              this.changeStatus(this.filterTreeData, ids)
+          }
           if (this.showPopup) {
             this.resetClearTimerList()
             this.renderTree(this.treeData)
@@ -318,7 +340,7 @@ export default {
       return {}
     },
     getContentHeight({ screenHeight }) {
-      this.contentHeight = `${Math.floor(screenHeight * 0.7)}px`
+      this.defaultContentHeight = `${Math.floor(screenHeight * 0.7)}px`
     },
     // 处理搜索
     handleSearch(isClear = false) {
@@ -439,6 +461,7 @@ export default {
 
       for (let i = 0; i < arr.length; i++) {
         const obj = {
+          ...arr[i],
           [this.dataLabel]: arr[i][this.dataLabel],
           [this.dataValue]: arr[i][this.dataValue]
         }
@@ -447,7 +470,13 @@ export default {
           arr[i][this.dataValue].toString()
         )
 
-        obj.disabled = Boolean(arr[i].disabled)
+        obj.disabled = false
+        if (
+          Boolean(arr[i].disabled) ||
+          this.disabledList.includes(obj[this.dataValue].toString())
+        ) {
+          obj.disabled = true
+        }
 
         //半选
         obj.partChecked = Boolean(
@@ -474,10 +503,18 @@ export default {
             : this.showChildren
 
         if (arr[i][this.dataChildren]?.length) {
-          obj[this.dataChildren] = this.initData(
+          const childrenVal = this.initData(
             arr[i][this.dataChildren],
             obj.visible
           )
+          obj[this.dataChildren] = childrenVal
+          if (
+            !obj.checked &&
+            childrenVal.some((item) => item.checked || item.partChecked)
+          ) {
+            obj.partChecked = true
+            partCheckedSet.add(obj[this.dataValue])
+          }
         }
 
         res.push(obj)
